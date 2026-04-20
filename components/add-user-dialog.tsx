@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation"
 import { useState, useTransition } from "react"
-import { ArrowLeft, Mail, UserPlus } from "lucide-react"
+import { ArrowLeft, Mail } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -22,10 +22,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { createTeamMember, inviteTeamMember } from "@/lib/actions/team-management"
+import { inviteTeamMember } from "@/lib/actions/team-management"
 import { USER_ROLES } from "@/lib/roles"
 
-type Flow = "choose" | "invite" | "create"
+type Flow = "choose" | "invite"
 
 export function AddUserDialog() {
   const router = useRouter()
@@ -36,21 +36,14 @@ export function AddUserDialog() {
   const [inviteEmail, setInviteEmail] = useState("")
   const [inviteRole, setInviteRole] = useState("setter")
   const [inviteError, setInviteError] = useState<string | null>(null)
-
-  const [createEmail, setCreateEmail] = useState("")
-  const [createPassword, setCreatePassword] = useState("")
-  const [createRole, setCreateRole] = useState("setter")
-  const [createError, setCreateError] = useState<string | null>(null)
+  const [inviteSuccess, setInviteSuccess] = useState<string | null>(null)
 
   function resetForms() {
     setFlow("choose")
     setInviteEmail("")
     setInviteRole("setter")
     setInviteError(null)
-    setCreateEmail("")
-    setCreatePassword("")
-    setCreateRole("setter")
-    setCreateError(null)
+    setInviteSuccess(null)
   }
 
   function handleOpenChange(next: boolean) {
@@ -73,11 +66,11 @@ export function AddUserDialog() {
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="-ml-2 mb-1 w-fit gap-1 px-2 text-muted-foreground"
+                className="mb-1 -ml-2 w-fit gap-1 px-2 text-muted-foreground"
                 onClick={() => {
                   setFlow("choose")
                   setInviteError(null)
-                  setCreateError(null)
+                  setInviteSuccess(null)
                 }}
               >
                 <ArrowLeft className="h-4 w-4" />
@@ -87,44 +80,32 @@ export function AddUserDialog() {
             <DialogTitle>
               {flow === "choose" && "Add user"}
               {flow === "invite" && "Send email invite"}
-              {flow === "create" && "Create account"}
             </DialogTitle>
             <DialogDescription>
-              {flow === "choose" && "Choose how you want to add someone to the team."}
+              {flow === "choose" && "Invite someone to your team via email."}
               {flow === "invite" &&
                 "They’ll get an email to set a password and sign in."}
-              {flow === "create" &&
-                "Creates the account immediately with a temporary password you share with them."}
             </DialogDescription>
           </DialogHeader>
 
           <div className="overflow-y-auto px-6 py-4">
             {flow === "choose" && (
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-3">
                 <button
                   type="button"
-                  onClick={() => setFlow("invite")}
-                  className="flex flex-col items-start gap-2 rounded-lg border bg-card p-4 text-left transition-colors hover:bg-accent/50 hover:border-accent-foreground/20"
+                  onClick={() => {
+                    setInviteError(null)
+                    setInviteSuccess(null)
+                    setFlow("invite")
+                  }}
+                  className="flex flex-col items-start gap-2 rounded-lg border bg-card p-4 text-left transition-colors hover:border-accent-foreground/20 hover:bg-accent/50"
                 >
                   <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 text-primary">
                     <Mail className="h-4 w-4" />
                   </div>
                   <span className="font-medium">Email invite</span>
-                  <span className="text-xs text-muted-foreground leading-snug">
+                  <span className="text-xs leading-snug text-muted-foreground">
                     Send a link so they can set their own password.
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFlow("create")}
-                  className="flex flex-col items-start gap-2 rounded-lg border bg-card p-4 text-left transition-colors hover:bg-accent/50 hover:border-accent-foreground/20"
-                >
-                  <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 text-primary">
-                    <UserPlus className="h-4 w-4" />
-                  </div>
-                  <span className="font-medium">Create account</span>
-                  <span className="text-xs text-muted-foreground leading-snug">
-                    Set email and password for them now.
                   </span>
                 </button>
               </div>
@@ -158,84 +139,39 @@ export function AddUserDialog() {
                     </SelectContent>
                   </Select>
                 </div>
-                {inviteError && <p className="text-sm text-destructive">{inviteError}</p>}
+                {inviteError && (
+                  <p className="text-sm text-destructive">{inviteError}</p>
+                )}
+                {inviteSuccess && (
+                  <p className="text-sm text-emerald-600">{inviteSuccess}</p>
+                )}
                 <Button
                   className="w-full"
                   disabled={pending}
                   onClick={() => {
                     setInviteError(null)
+                    setInviteSuccess(null)
                     startTransition(async () => {
-                      const res = await inviteTeamMember(inviteEmail, inviteRole)
+                      const res = await inviteTeamMember(
+                        inviteEmail,
+                        inviteRole
+                      )
                       if ("error" in res && res.error) {
                         setInviteError(res.error)
                         return
                       }
-                      handleOpenChange(false)
+
+                      setInviteSuccess(
+                        res.existing
+                          ? "That email is already registered. A password reset link has been sent."
+                          : "Invite sent. They will receive an email to set their password."
+                      )
+                      setInviteEmail("")
                       router.refresh()
                     })
                   }}
                 >
                   Send invite
-                </Button>
-              </div>
-            )}
-
-            {flow === "create" && (
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="add-create-email">Email</Label>
-                  <Input
-                    id="add-create-email"
-                    type="email"
-                    value={createEmail}
-                    onChange={(e) => setCreateEmail(e.target.value)}
-                    placeholder="coach@example.com"
-                    autoComplete="off"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="add-create-password">Temporary password</Label>
-                  <Input
-                    id="add-create-password"
-                    type="password"
-                    value={createPassword}
-                    onChange={(e) => setCreatePassword(e.target.value)}
-                    autoComplete="new-password"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Role</Label>
-                  <Select value={createRole} onValueChange={setCreateRole}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {USER_ROLES.map((r) => (
-                        <SelectItem key={r} value={r}>
-                          {r.charAt(0).toUpperCase() + r.slice(1)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                {createError && <p className="text-sm text-destructive">{createError}</p>}
-                <Button
-                  className="w-full"
-                  disabled={pending}
-                  onClick={() => {
-                    setCreateError(null)
-                    startTransition(async () => {
-                      const res = await createTeamMember(createEmail, createPassword, createRole)
-                      if ("error" in res && res.error) {
-                        setCreateError(res.error)
-                        return
-                      }
-                      handleOpenChange(false)
-                      router.refresh()
-                    })
-                  }}
-                >
-                  Create user
                 </Button>
               </div>
             )}
