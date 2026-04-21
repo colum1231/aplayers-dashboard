@@ -1,9 +1,16 @@
 import { AddUserDialog } from "@/components/add-user-dialog"
 import { TeamManagementPanel } from "@/components/team-management-panel"
 import { getTeamMembersForAdmin } from "@/lib/data/team"
+import { createClient } from "@/lib/supabase/server"
 
 export default async function SettingsPage() {
-  const members = await getTeamMembersForAdmin()
+  const [members, supabase] = await Promise.all([
+    getTeamMembersForAdmin(),
+    createClient(),
+  ])
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-6">
@@ -14,7 +21,7 @@ export default async function SettingsPage() {
         </div>
         <AddUserDialog />
       </div>
-      <TeamManagementPanel members={members} />
+      <TeamManagementPanel members={members} currentUserId={user?.id ?? ""} />
     </div>
   )
 }

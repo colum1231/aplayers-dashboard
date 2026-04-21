@@ -38,13 +38,23 @@ function revalidateTeam() {
   revalidatePath("/dashboard/settings")
 }
 
-async function upsertProfile(id: string, email: string, role: UserRole) {
+async function upsertProfile(
+  id: string,
+  email: string,
+  role: UserRole,
+  fullName?: string | null
+) {
   await db
     .insert(profiles)
-    .values({ id, email, role })
+    .values({ id, email, role, fullName: fullName ?? null })
     .onConflictDoUpdate({
       target: profiles.id,
-      set: { email, role, updatedAt: new Date() },
+      set: {
+        email,
+        role,
+        ...(fullName !== undefined ? { fullName } : {}),
+        updatedAt: new Date(),
+      },
     })
 }
 
@@ -68,9 +78,73 @@ export async function updateMemberRole(
   return { ok: true }
 }
 
+export async function updateMember(
+  memberId: string,
+  data: { name: string; role: string }
+): Promise<TeamActionResult> {
+  if (!isUserRole(data.role)) return invalidInput("Invalid role")
+
+  const gate = await requireAdmin()
+  if (gate.error) return { error: gate.error }
+
+  await db
+    .update(profiles)
+    .set({
+      fullName: data.name.trim() || null,
+      role: data.role as UserRole,
+      updatedAt: new Date(),
+    })
+    .where(eq(profiles.id, memberId))
+
+  revalidateTeam()
+  return { ok: true }
+}
+
+export async function resendInvite(email: string): Promise<TeamActionResult> {
+  const gate = await requireAdmin()
+  if (gate.error) return { error: gate.error }
+
+  const admin = createAdminClient()
+  const setPasswordUrl = `${appOrigin()}/set-password`
+
+  const { error } = await admin.auth.admin.inviteUserByEmail(email, {
+    redirectTo: setPasswordUrl,
+  })
+
+  if (error) {
+    // User already confirmed — fall back to a password reset email
+    const supabase = await createClient()
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(
+      email,
+      { redirectTo: setPasswordUrl }
+    )
+    if (resetError) return { error: resetError.message }
+  }
+
+  return { ok: true }
+}
+
+export async function sendPasswordReset(
+  email: string
+): Promise<TeamActionResult> {
+  const gate = await requireAdmin()
+  if (gate.error) return { error: gate.error }
+
+  const supabase = await createClient()
+  const setPasswordUrl = `${appOrigin()}/set-password`
+
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: setPasswordUrl,
+  })
+  if (error) return { error: error.message }
+
+  return { ok: true }
+}
+
 export async function inviteTeamMember(
   email: string,
-  role: string
+  role: string,
+  name?: string
 ): Promise<InviteMemberResult> {
   const trimmed = email.trim().toLowerCase()
   if (!trimmed || !trimmed.includes("@")) {
@@ -96,7 +170,7 @@ export async function inviteTeamMember(
 
     if (!alreadyExists) return { error: error.message }
 
-    // Existing user — update role then send password reset
+    // Existing user — update role (and name if provided) then send password reset
     const [existingProfile] = await db
       .select()
       .from(profiles)
@@ -104,15 +178,13 @@ export async function inviteTeamMember(
       .limit(1)
 
     if (existingProfile) {
-      await upsertProfile(existingProfile.id, trimmed, role as UserRole)
+      await upsertProfile(existingProfile.id, trimmed, role as UserRole, name)
     }
 
     const supabase = await createClient()
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(
       trimmed,
-      {
-        redirectTo: setPasswordUrl,
-      }
+      { redirectTo: setPasswordUrl }
     )
     if (resetError) return { error: resetError.message }
 
@@ -121,7 +193,7 @@ export async function inviteTeamMember(
   }
 
   if (data.user) {
-    await upsertProfile(data.user.id, trimmed, role as UserRole)
+    await upsertProfile(data.user.id, trimmed, role as UserRole, name)
   }
   revalidateTeam()
   return { ok: true, existing: false }

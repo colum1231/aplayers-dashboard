@@ -1,4 +1,4 @@
-import { pgEnum, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core"
+import { integer, jsonb, pgEnum, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core"
 
 export const userRoleEnum = pgEnum("user_role", ["admin", "closer", "setter"])
 
@@ -14,3 +14,23 @@ export const profiles = pgTable("profiles", {
 
 export type Profile = typeof profiles.$inferSelect
 export type NewProfile = typeof profiles.$inferInsert
+
+export const payments = pgTable("payments", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  stripePaymentIntentId: text("stripe_payment_intent_id").notNull().unique(),
+  amount: integer("amount").notNull(), // in cents
+  currency: text("currency").notNull(),
+  status: text("status").notNull(),
+  customerEmail: text("customer_email"),
+  customerName: text("customer_name"),
+  productName: text("product_name"),
+  productId: text("product_id"),
+  priceId: text("price_id"),
+  stripeCustomerId: text("stripe_customer_id"),
+  metadata: jsonb("metadata"),
+  paymentDate: timestamp("payment_date", { withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+})
+
+export type Payment = typeof payments.$inferSelect
+export type NewPayment = typeof payments.$inferInsert

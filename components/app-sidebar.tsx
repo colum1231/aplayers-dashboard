@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { LayoutDashboard, LogOut, Settings, Trophy } from "lucide-react"
+import { CreditCard, LayoutDashboard, LogOut, Settings, Trophy } from "lucide-react"
 
 import {
   Sidebar,
@@ -16,7 +16,12 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { createClient } from "@/lib/supabase/client"
 import { roleLabel, type UserRole } from "@/lib/roles"
@@ -35,7 +40,12 @@ interface AppSidebarProps {
   isAdmin: boolean
 }
 
-export function AppSidebar({ role, email, fullName, isAdmin }: AppSidebarProps) {
+export function AppSidebar({
+  role,
+  email,
+  fullName,
+  isAdmin,
+}: AppSidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
 
@@ -64,8 +74,12 @@ export function AppSidebar({ role, email, fullName, isAdmin }: AppSidebarProps) 
             <Trophy className="h-4 w-4" />
           </div>
           <div className="flex min-w-0 flex-col leading-tight">
-            <span className="truncate font-bold tracking-tight">A Players Club</span>
-            <span className="text-[10px] text-muted-foreground uppercase tracking-widest">Dashboard</span>
+            <span className="truncate font-bold tracking-tight">
+              A Players Club
+            </span>
+            <span className="text-[10px] tracking-widest text-muted-foreground uppercase">
+              Dashboard
+            </span>
           </div>
         </div>
       </SidebarHeader>
@@ -75,7 +89,10 @@ export function AppSidebar({ role, email, fullName, isAdmin }: AppSidebarProps) 
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={isNavActive(pathname, "/dashboard")}>
+                <SidebarMenuButton
+                  asChild
+                  isActive={isNavActive(pathname, "/dashboard")}
+                >
                   <Link href="/dashboard">
                     <LayoutDashboard />
                     <span>Dashboard</span>
@@ -83,14 +100,30 @@ export function AppSidebar({ role, email, fullName, isAdmin }: AppSidebarProps) 
                 </SidebarMenuButton>
               </SidebarMenuItem>
               {isAdmin && (
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={isNavActive(pathname, "/dashboard/settings")}>
-                    <Link href="/dashboard/settings">
-                      <Settings />
-                      <span>Settings</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
+                <>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={isNavActive(pathname, "/dashboard/payments")}
+                    >
+                      <Link href="/dashboard/payments">
+                        <CreditCard />
+                        <span>Payments</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={isNavActive(pathname, "/dashboard/settings")}
+                    >
+                      <Link href="/dashboard/settings">
+                        <Settings />
+                        <span>Settings</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                </>
               )}
             </SidebarMenu>
           </SidebarGroupContent>
@@ -110,14 +143,18 @@ export function AppSidebar({ role, email, fullName, isAdmin }: AppSidebarProps) 
               <div className="min-w-0 flex-1">
                 <p className="truncate text-xs font-medium">{display}</p>
                 {email && display !== email && (
-                  <p className="truncate text-[11px] text-muted-foreground">{email}</p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {email}
+                  </p>
                 )}
-                <p className="mt-0.5 text-[11px] text-muted-foreground">{roleLabel(role)}</p>
               </div>
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent side="top" align="start" className="w-56">
-            <DropdownMenuItem onClick={handleSignOut} className="text-destructive focus:text-destructive">
+            <DropdownMenuItem
+              onClick={handleSignOut}
+              className="text-destructive focus:text-destructive"
+            >
               <LogOut className="mr-2 h-4 w-4" />
               Sign out
             </DropdownMenuItem>

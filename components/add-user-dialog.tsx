@@ -34,11 +34,13 @@ export function AddUserDialog() {
   const [open, setOpen] = useState(false)
   const [pending, startTransition] = useTransition()
 
+  const [inviteName, setInviteName] = useState("")
   const [inviteEmail, setInviteEmail] = useState("")
   const [inviteRole, setInviteRole] = useState<UserRole>("setter")
   const [inviteStatus, setInviteStatus] = useState<InviteStatus>({ type: "idle" })
 
   function resetForms() {
+    setInviteName("")
     setInviteEmail("")
     setInviteRole("setter")
     setInviteStatus({ type: "idle" })
@@ -55,7 +57,11 @@ export function AddUserDialog() {
     setInviteStatus({ type: "idle" })
 
     startTransition(async () => {
-      const res = await inviteTeamMember(inviteEmail, inviteRole)
+      const res = await inviteTeamMember(
+        inviteEmail,
+        inviteRole,
+        inviteName.trim() || undefined
+      )
       if ("error" in res) {
         setInviteStatus({ type: "error", message: res.error })
         return
@@ -67,6 +73,7 @@ export function AddUserDialog() {
           ? "That email is already registered. A password reset link has been sent."
           : "Invite sent. They will receive an email to set their password.",
       })
+      setInviteName("")
       setInviteEmail("")
       router.refresh()
     })
@@ -88,6 +95,17 @@ export function AddUserDialog() {
 
           <div className="overflow-y-auto px-6 py-4">
             <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="add-invite-name">Name</Label>
+                <Input
+                  id="add-invite-name"
+                  type="text"
+                  value={inviteName}
+                  onChange={(e) => setInviteName(e.target.value)}
+                  placeholder="Jane Smith"
+                  autoComplete="off"
+                />
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="add-invite-email">Email</Label>
                 <Input

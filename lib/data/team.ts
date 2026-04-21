@@ -8,6 +8,7 @@ export type TeamMemberRow = {
   email: string
   fullName: string | null
   role: UserRole
+  isPending: boolean
 }
 
 export async function getTeamMembersForAdmin(): Promise<TeamMemberRow[]> {
@@ -26,6 +27,7 @@ export async function getTeamMembersForAdmin(): Promise<TeamMemberRow[]> {
       email: u.email ?? "",
       fullName: p?.fullName ?? null,
       role: (p?.role ?? "setter") as UserRole,
+      isPending: !u.confirmed_at,
     }
   })
 }
