@@ -65,7 +65,13 @@ export function ChartTooltip({
   active,
   payload,
   className,
-}: React.ComponentProps<typeof RechartsPrimitive.Tooltip> & {
+}: {
+  active?: boolean
+  payload?: Array<{
+    name?: string | number
+    dataKey?: string | number
+    value?: number | string
+  }>
   className?: string
 }) {
   const { config } = useChart()

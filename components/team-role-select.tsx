@@ -33,7 +33,7 @@ export function TeamRoleSelect({ memberId, value }: TeamRoleSelectProps) {
 
     startTransition(async () => {
       const result = await updateMemberRole(memberId, nextRole)
-      if (result.error) {
+      if ("error" in result) {
         setSelectedRole(previousRole)
         alert(result.error)
         return
