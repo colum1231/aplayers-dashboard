@@ -1,6 +1,7 @@
 "use client"
 
-import { useTransition } from "react"
+import { useRouter } from "next/navigation"
+import { useEffect, useState, useTransition } from "react"
 
 import {
   Select,
@@ -9,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { USER_ROLES, type UserRole } from "@/lib/roles"
+import { roleLabel, USER_ROLES, type UserRole } from "@/lib/roles"
 import { updateMemberRole } from "@/lib/actions/team-management"
 
 interface TeamRoleSelectProps {
@@ -18,17 +19,35 @@ interface TeamRoleSelectProps {
 }
 
 export function TeamRoleSelect({ memberId, value }: TeamRoleSelectProps) {
+  const router = useRouter()
   const [pending, startTransition] = useTransition()
+  const [selectedRole, setSelectedRole] = useState<UserRole>(value)
+
+  useEffect(() => {
+    setSelectedRole(value)
+  }, [value])
+
+  function handleRoleChange(nextRole: string) {
+    const previousRole = selectedRole
+    setSelectedRole(nextRole as UserRole)
+
+    startTransition(async () => {
+      const result = await updateMemberRole(memberId, nextRole)
+      if (result.error) {
+        setSelectedRole(previousRole)
+        alert(result.error)
+        return
+      }
+
+      router.refresh()
+    })
+  }
 
   return (
     <Select
-      value={value}
+      value={selectedRole}
       disabled={pending}
-      onValueChange={(next) => {
-        startTransition(async () => {
-          await updateMemberRole(memberId, next)
-        })
-      }}
+      onValueChange={handleRoleChange}
     >
       <SelectTrigger className="w-[140px]">
         <SelectValue />
@@ -36,7 +55,7 @@ export function TeamRoleSelect({ memberId, value }: TeamRoleSelectProps) {
       <SelectContent>
         {USER_ROLES.map((r) => (
           <SelectItem key={r} value={r}>
-            {r.charAt(0).toUpperCase() + r.slice(1)}
+            {roleLabel(r)}
           </SelectItem>
         ))}
       </SelectContent>

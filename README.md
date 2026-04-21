@@ -1,21 +1,12 @@
-# Next.js template
+# A-Players Dashboard
 
-This is a Next.js template with shadcn/ui.
+This repository contains the code for the A-Players dashboard.
 
-## Adding components
+## Tech Stack
 
-To add components to your app, run the following command:
-
-```bash
-npx shadcn@latest add button
-```
-
-This will place the ui components in the `components` directory.
-
-## Using components
-
-To use the components in your app, import them as follows:
-
-```tsx
-import { Button } from "@/components/ui/button";
-```
+- Next.js
+- Tailwind CSS
+- Shadcn UI
+- Supabase
+- Drizzle ORM
+- TypeScript

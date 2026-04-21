@@ -10,6 +10,11 @@ import { isUserRole, type UserRole } from "@/lib/roles"
 import { createClient } from "@/lib/supabase/server"
 import { appOrigin, createAdminClient } from "@/lib/supabase/admin"
 
+type TeamActionResult = { ok: true } | { error: string }
+type InviteMemberResult =
+  | { ok: true; existing: boolean }
+  | { error: string }
+
 async function requireAdmin() {
   const supabase = await createClient()
   const {
@@ -23,6 +28,10 @@ async function requireAdmin() {
     return { error: "Only admins can manage the team", user, profile }
   }
   return { error: null, user, profile }
+}
+
+function invalidInput(message: string): { error: string } {
+  return { error: message }
 }
 
 function revalidateTeam() {
@@ -39,9 +48,12 @@ async function upsertProfile(id: string, email: string, role: UserRole) {
     })
 }
 
-export async function updateMemberRole(memberId: string, nextRole: string) {
+export async function updateMemberRole(
+  memberId: string,
+  nextRole: string
+): Promise<TeamActionResult> {
   if (!isUserRole(nextRole)) {
-    return { error: "Invalid role" }
+    return invalidInput("Invalid role")
   }
 
   const gate = await requireAdmin()
@@ -56,13 +68,16 @@ export async function updateMemberRole(memberId: string, nextRole: string) {
   return { ok: true }
 }
 
-export async function inviteTeamMember(email: string, role: string) {
+export async function inviteTeamMember(
+  email: string,
+  role: string
+): Promise<InviteMemberResult> {
   const trimmed = email.trim().toLowerCase()
   if (!trimmed || !trimmed.includes("@")) {
-    return { error: "Valid email required" }
+    return invalidInput("Valid email required")
   }
   if (!isUserRole(role)) {
-    return { error: "Invalid role" }
+    return invalidInput("Invalid role")
   }
 
   const gate = await requireAdmin()
@@ -112,7 +127,7 @@ export async function inviteTeamMember(email: string, role: string) {
   return { ok: true, existing: false }
 }
 
-export async function deleteTeamMember(memberId: string) {
+export async function deleteTeamMember(memberId: string): Promise<TeamActionResult> {
   const gate = await requireAdmin()
   if (gate.error) return { error: gate.error }
   if (!gate.user) return { error: "Not signed in" }

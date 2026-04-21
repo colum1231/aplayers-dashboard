@@ -1,7 +1,7 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { useTransition } from "react"
+import { useState, useTransition } from "react"
 import { Trash2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -16,10 +16,31 @@ interface TeamManagementPanelProps {
 export function TeamManagementPanel({ members }: TeamManagementPanelProps) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
+  const [deletingMemberId, setDeletingMemberId] = useState<string | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+
+  function handleDeleteMember(memberId: string, email: string) {
+    if (!confirm(`Remove ${email}? They won't be able to sign in.`)) return
+
+    setDeleteError(null)
+    setDeletingMemberId(memberId)
+
+    startTransition(async () => {
+      const res = await deleteTeamMember(memberId)
+      if (res.error) {
+        setDeleteError(res.error)
+        setDeletingMemberId(null)
+        return
+      }
+
+      router.refresh()
+    })
+  }
 
   return (
     <div className="space-y-4">
       <h2 className="text-lg font-medium">Team members</h2>
+      {deleteError && <p className="text-sm text-destructive">{deleteError}</p>}
       <div className="overflow-x-auto rounded-md border">
         <table className="w-full text-sm">
           <thead>
@@ -44,19 +65,9 @@ export function TeamManagementPanel({ members }: TeamManagementPanelProps) {
                     variant="ghost"
                     size="icon"
                     className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                    disabled={pending}
+                    disabled={pending || deletingMemberId === m.id}
                     aria-label={`Remove ${m.email}`}
-                    onClick={() => {
-                      if (!confirm(`Remove ${m.email}? They won't be able to sign in.`)) return
-                      startTransition(async () => {
-                        const res = await deleteTeamMember(m.id)
-                        if (res.error) {
-                          alert(res.error)
-                          return
-                        }
-                        router.refresh()
-                      })
-                    }}
+                    onClick={() => handleDeleteMember(m.id, m.email)}
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
