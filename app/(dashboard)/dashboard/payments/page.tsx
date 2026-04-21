@@ -1,6 +1,11 @@
 import Link from "next/link"
 
-import { listPaymentsPaginated, type DateRange } from "@/lib/data/payments"
+import {
+  listPaymentsPaginated,
+  type PaymentDateFilter,
+  type PaymentDatePreset,
+} from "@/lib/data/payments"
+import { DateFilterDropdown } from "@/components/date-filter-dropdown"
 import { Badge } from "@/components/ui/badge"
 import {
   Table,
@@ -11,11 +16,38 @@ import {
   TableRow,
 } from "@/components/ui/table"
 
-const RANGES: { label: string; value: DateRange }[] = [
-  { label: "7d", value: 7 },
-  { label: "30d", value: 30 },
-  { label: "90d", value: 90 },
+const PRESETS: { label: string; value: PaymentDatePreset }[] = [
+  { label: "Today", value: "today" },
+  { label: "Yesterday", value: "yesterday" },
+  { label: "This Week", value: "this_week" },
+  { label: "Last Week", value: "last_week" },
+  { label: "Next Week", value: "next_week" },
+  { label: "This Month", value: "this_month" },
+  { label: "Last Month", value: "last_month" },
+  { label: "Next Month", value: "next_month" },
+  { label: "This Quarter", value: "this_quarter" },
+  { label: "Last Quarter", value: "last_quarter" },
+  { label: "Next Quarter", value: "next_quarter" },
+  { label: "This Year", value: "this_year" },
+  { label: "Last Year", value: "last_year" },
+  { label: "Next Year", value: "next_year" },
+  { label: "All Time", value: "all_time" },
 ]
+
+const PRESET_SET = new Set<PaymentDatePreset>(PRESETS.map((p) => p.value))
+
+function parseISODateInput(value?: string) {
+  if (!value) return undefined
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return undefined
+  const parsed = new Date(`${value}T00:00:00`)
+  if (Number.isNaN(parsed.getTime())) return undefined
+  return parsed
+}
+
+function displayDate(value?: string) {
+  if (!value) return "..."
+  return value
+}
 
 function fmt(cents: number, currency = "usd") {
   return new Intl.NumberFormat("en-US", {
@@ -38,11 +70,32 @@ function fmtDate(d: Date) {
 export default async function PaymentsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ range?: string; page?: string; pageSize?: string }>
+  searchParams: Promise<{
+    preset?: string
+    from?: string
+    to?: string
+    page?: string
+    pageSize?: string
+  }>
 }) {
-  const { range: rawRange, page: rawPage, pageSize: rawPageSize } = await searchParams
-  const range: DateRange | undefined =
-    rawRange === "7" ? 7 : rawRange === "30" ? 30 : rawRange === "90" ? 90 : undefined
+  const {
+    preset: rawPreset,
+    from: rawFrom,
+    to: rawTo,
+    page: rawPage,
+    pageSize: rawPageSize,
+  } = await searchParams
+  const preset: PaymentDatePreset =
+    rawPreset && PRESET_SET.has(rawPreset as PaymentDatePreset)
+      ? (rawPreset as PaymentDatePreset)
+      : "all_time"
+  const fromDate = parseISODateInput(rawFrom)
+  const toDate = parseISODateInput(rawTo)
+  const hasCustomRange = Boolean(fromDate || toDate)
+  const activeFilter: PaymentDateFilter = hasCustomRange ? { from: fromDate, to: toDate } : { preset }
+  const activeFilterLabel = hasCustomRange
+    ? `Custom ${displayDate(rawFrom)} to ${displayDate(rawTo)}`
+    : PRESETS.find((p) => p.value === preset)?.label ?? "All Time"
 
   const page = Math.max(1, Number(rawPage) || 1)
   const allowedPageSizes = new Set([25, 50, 100])
@@ -50,7 +103,7 @@ export default async function PaymentsPage({
   const pageSize = allowedPageSizes.has(parsedPageSize) ? parsedPageSize : 25
 
   const { rows, total, totalPages } = await listPaymentsPaginated({
-    range,
+    filter: activeFilter,
     page,
     pageSize,
   })
@@ -58,9 +111,17 @@ export default async function PaymentsPage({
   const startRow = total === 0 ? 0 : (safePage - 1) * pageSize + 1
   const endRow = Math.min(safePage * pageSize, total)
 
-  function hrefFor(next: { range?: DateRange; page?: number; pageSize?: number }) {
+  function hrefFor(next: {
+    preset?: PaymentDatePreset
+    from?: string
+    to?: string
+    page?: number
+    pageSize?: number
+  }) {
     const params = new URLSearchParams()
-    if (next.range) params.set("range", String(next.range))
+    if (next.preset && next.preset !== "all_time") params.set("preset", next.preset)
+    if (next.from) params.set("from", next.from)
+    if (next.to) params.set("to", next.to)
     if (next.page && next.page > 1) params.set("page", String(next.page))
     if (next.pageSize && next.pageSize !== 25) params.set("pageSize", String(next.pageSize))
     const query = params.toString()
@@ -75,35 +136,19 @@ export default async function PaymentsPage({
           <p className="text-sm text-muted-foreground">
             {rows.length.toLocaleString()} succeeded payment
             {rows.length !== 1 ? "s" : ""}
-            {range ? ` in the last ${range} days` : " (all time)"}
+            {` (${activeFilterLabel})`}
           </p>
         </div>
 
-        <div className="flex items-center gap-1 rounded-lg border p-1 w-fit">
-          <Link
-            href={hrefFor({ page: 1, pageSize })}
-            className={`px-3 py-1 text-sm rounded-md transition-colors ${
-              !range
-                ? "bg-primary text-primary-foreground font-medium"
-                : "text-muted-foreground hover:text-foreground hover:bg-muted"
-            }`}
-          >
-            All
-          </Link>
-          {RANGES.map((r) => (
-            <Link
-              key={r.value}
-              href={hrefFor({ range: r.value, page: 1, pageSize })}
-              className={`px-3 py-1 text-sm rounded-md transition-colors ${
-                range === r.value
-                  ? "bg-primary text-primary-foreground font-medium"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
-              }`}
-            >
-              {r.label}
-            </Link>
-          ))}
-        </div>
+        <DateFilterDropdown
+          pathname="/dashboard/payments"
+          presets={PRESETS}
+          activePreset={preset}
+          activeLabel={activeFilterLabel}
+          from={rawFrom}
+          to={rawTo}
+          pageSize={pageSize}
+        />
       </div>
 
       <div className="rounded-lg border">
@@ -183,7 +228,13 @@ export default async function PaymentsPage({
             {[25, 50, 100].map((size) => (
               <Link
                 key={size}
-                href={hrefFor({ range, page: 1, pageSize: size })}
+                href={hrefFor({
+                  preset: hasCustomRange ? undefined : preset,
+                  from: hasCustomRange ? rawFrom : undefined,
+                  to: hasCustomRange ? rawTo : undefined,
+                  page: 1,
+                  pageSize: size,
+                })}
                 className={`px-2 py-1 text-xs rounded ${
                   pageSize === size
                     ? "bg-primary text-primary-foreground"
@@ -196,7 +247,13 @@ export default async function PaymentsPage({
           </div>
 
           <Link
-            href={hrefFor({ range, page: Math.max(1, safePage - 1), pageSize })}
+            href={hrefFor({
+              preset: hasCustomRange ? undefined : preset,
+              from: hasCustomRange ? rawFrom : undefined,
+              to: hasCustomRange ? rawTo : undefined,
+              page: Math.max(1, safePage - 1),
+              pageSize,
+            })}
             aria-disabled={safePage <= 1}
             className={`px-3 py-1.5 text-sm rounded-md border ${
               safePage <= 1
@@ -210,7 +267,13 @@ export default async function PaymentsPage({
             Page {safePage} / {totalPages}
           </span>
           <Link
-            href={hrefFor({ range, page: Math.min(totalPages, safePage + 1), pageSize })}
+            href={hrefFor({
+              preset: hasCustomRange ? undefined : preset,
+              from: hasCustomRange ? rawFrom : undefined,
+              to: hasCustomRange ? rawTo : undefined,
+              page: Math.min(totalPages, safePage + 1),
+              pageSize,
+            })}
             aria-disabled={safePage >= totalPages}
             className={`px-3 py-1.5 text-sm rounded-md border ${
               safePage >= totalPages

@@ -4,6 +4,28 @@ import { db } from "@/lib/db"
 import { payments } from "@/lib/db/schema"
 
 export type DateRange = 7 | 30 | 90
+export type PaymentDatePreset =
+  | "today"
+  | "yesterday"
+  | "this_week"
+  | "last_week"
+  | "next_week"
+  | "this_month"
+  | "last_month"
+  | "next_month"
+  | "this_quarter"
+  | "last_quarter"
+  | "next_quarter"
+  | "this_year"
+  | "last_year"
+  | "next_year"
+  | "all_time"
+
+export type PaymentDateFilter = {
+  preset?: PaymentDatePreset
+  from?: Date
+  to?: Date
+}
 
 function rangeStart(days: DateRange) {
   const d = new Date()
@@ -12,37 +34,165 @@ function rangeStart(days: DateRange) {
   return d
 }
 
-export async function getPaymentMetrics(range: DateRange = 30) {
-  const currentStart = rangeStart(range)
-  const priorStart = new Date(currentStart)
-  priorStart.setDate(priorStart.getDate() - range)
+function startOfDay(value: Date) {
+  const d = new Date(value)
+  d.setHours(0, 0, 0, 0)
+  return d
+}
 
-  const [current, prior] = await Promise.all([
+function addDays(value: Date, days: number) {
+  const d = new Date(value)
+  d.setDate(d.getDate() + days)
+  return d
+}
+
+function getQuarter(date: Date) {
+  return Math.floor(date.getMonth() / 3)
+}
+
+function presetBounds(preset: PaymentDatePreset): { from?: Date; to?: Date } {
+  if (preset === "all_time") return {}
+
+  const now = new Date()
+  const today = startOfDay(now)
+  const dayOfWeek = (today.getDay() + 6) % 7 // monday=0
+
+  switch (preset) {
+    case "today":
+      return { from: today, to: addDays(today, 1) }
+    case "yesterday":
+      return { from: addDays(today, -1), to: today }
+    case "this_week": {
+      const from = addDays(today, -dayOfWeek)
+      return { from, to: addDays(from, 7) }
+    }
+    case "last_week": {
+      const from = addDays(today, -dayOfWeek - 7)
+      return { from, to: addDays(from, 7) }
+    }
+    case "next_week": {
+      const from = addDays(today, -dayOfWeek + 7)
+      return { from, to: addDays(from, 7) }
+    }
+    case "this_month": {
+      const from = new Date(today.getFullYear(), today.getMonth(), 1)
+      return { from, to: new Date(today.getFullYear(), today.getMonth() + 1, 1) }
+    }
+    case "last_month": {
+      const from = new Date(today.getFullYear(), today.getMonth() - 1, 1)
+      return { from, to: new Date(today.getFullYear(), today.getMonth(), 1) }
+    }
+    case "next_month": {
+      const from = new Date(today.getFullYear(), today.getMonth() + 1, 1)
+      return { from, to: new Date(today.getFullYear(), today.getMonth() + 2, 1) }
+    }
+    case "this_quarter": {
+      const quarterStartMonth = getQuarter(today) * 3
+      const from = new Date(today.getFullYear(), quarterStartMonth, 1)
+      return { from, to: new Date(today.getFullYear(), quarterStartMonth + 3, 1) }
+    }
+    case "last_quarter": {
+      const quarterStartMonth = getQuarter(today) * 3
+      const from = new Date(today.getFullYear(), quarterStartMonth - 3, 1)
+      return { from, to: new Date(today.getFullYear(), quarterStartMonth, 1) }
+    }
+    case "next_quarter": {
+      const quarterStartMonth = getQuarter(today) * 3
+      const from = new Date(today.getFullYear(), quarterStartMonth + 3, 1)
+      return { from, to: new Date(today.getFullYear(), quarterStartMonth + 6, 1) }
+    }
+    case "this_year": {
+      const from = new Date(today.getFullYear(), 0, 1)
+      return { from, to: new Date(today.getFullYear() + 1, 0, 1) }
+    }
+    case "last_year": {
+      const from = new Date(today.getFullYear() - 1, 0, 1)
+      return { from, to: new Date(today.getFullYear(), 0, 1) }
+    }
+    case "next_year": {
+      const from = new Date(today.getFullYear() + 1, 0, 1)
+      return { from, to: new Date(today.getFullYear() + 2, 0, 1) }
+    }
+  }
+}
+
+function paymentDateConditions(filter?: PaymentDateFilter) {
+  const conditions = [eq(payments.status, "succeeded")]
+  const hasCustomBounds = Boolean(filter?.from || filter?.to)
+  const bounds = hasCustomBounds
+    ? {
+        from: filter?.from ? startOfDay(filter.from) : undefined,
+        to: filter?.to ? addDays(startOfDay(filter.to), 1) : undefined,
+      }
+    : presetBounds(filter?.preset ?? "all_time")
+
+  if (bounds.from) conditions.push(gte(payments.paymentDate, bounds.from))
+  if (bounds.to) conditions.push(lt(payments.paymentDate, bounds.to))
+
+  return conditions
+}
+
+function resolvePaymentFilter(filterOrRange?: PaymentDateFilter | DateRange) {
+  if (typeof filterOrRange === "number") {
+    return { from: rangeStart(filterOrRange), to: undefined as Date | undefined }
+  }
+
+  const hasCustomBounds = Boolean(filterOrRange?.from || filterOrRange?.to)
+  if (hasCustomBounds) {
+    return {
+      from: filterOrRange?.from ? startOfDay(filterOrRange.from) : undefined,
+      to: filterOrRange?.to ? addDays(startOfDay(filterOrRange.to), 1) : undefined,
+    }
+  }
+
+  return presetBounds(filterOrRange?.preset ?? "all_time")
+}
+
+function metricsConditions(bounds: { from?: Date; to?: Date }) {
+  const conditions = [eq(payments.status, "succeeded")]
+  if (bounds.from) conditions.push(gte(payments.paymentDate, bounds.from))
+  if (bounds.to) conditions.push(lt(payments.paymentDate, bounds.to))
+  return and(...conditions)
+}
+
+export async function getPaymentMetrics(filterOrRange: PaymentDateFilter | DateRange = 30) {
+  const bounds = resolvePaymentFilter(filterOrRange)
+  const hasClosedRange =
+    Boolean(bounds.from && bounds.to) && Number(bounds.to) > Number(bounds.from)
+  const rangeMs = hasClosedRange
+    ? Number(bounds.to?.getTime()) - Number(bounds.from?.getTime())
+    : null
+  const priorBounds =
+    hasClosedRange && rangeMs
+      ? {
+          from: new Date(Number(bounds.from?.getTime()) - rangeMs),
+          to: bounds.from,
+        }
+      : null
+
+  const [current, prior, customerStats] = await Promise.all([
     db
       .select({
         totalAmount: sum(payments.amount),
         totalCount: count(),
       })
       .from(payments)
-      .where(
-        and(
-          gte(payments.paymentDate, currentStart),
-          eq(payments.status, "succeeded"),
-        ),
-      ),
+      .where(metricsConditions(bounds)),
+    priorBounds
+      ? db
+          .select({
+            totalAmount: sum(payments.amount),
+            totalCount: count(),
+          })
+          .from(payments)
+          .where(metricsConditions(priorBounds))
+      : Promise.resolve([{ totalAmount: 0, totalCount: 0 }]),
     db
       .select({
-        totalAmount: sum(payments.amount),
-        totalCount: count(),
+        uniqueCustomers: sql<number>`count(distinct ${payments.customerEmail})`,
       })
       .from(payments)
-      .where(
-        and(
-          gte(payments.paymentDate, priorStart),
-          lt(payments.paymentDate, currentStart),
-          eq(payments.status, "succeeded"),
-        ),
-      ),
+      .where(metricsConditions(bounds)),
   ])
 
   const curAmount = Number(current[0]?.totalAmount ?? 0)
@@ -59,20 +209,6 @@ export async function getPaymentMetrics(range: DateRange = 30) {
   const priorAov = priorCount > 0 ? priorAmount / priorCount : 0
   const aovChange = priorAov > 0 ? ((aov - priorAov) / priorAov) * 100 : null
 
-  const [customerStats] = await Promise.all([
-    db
-      .select({
-        uniqueCustomers: sql<number>`count(distinct ${payments.customerEmail})`,
-      })
-      .from(payments)
-      .where(
-        and(
-          gte(payments.paymentDate, currentStart),
-          eq(payments.status, "succeeded"),
-        ),
-      ),
-  ])
-
   return {
     revenue: curAmount,
     revenueChange,
@@ -84,21 +220,22 @@ export async function getPaymentMetrics(range: DateRange = 30) {
   }
 }
 
-export async function getProductRevenueBreakdown(range: DateRange = 30, limit = 5) {
-  const start = rangeStart(range)
+export async function getProductRevenueBreakdown(
+  filterOrRange: PaymentDateFilter | DateRange = 30,
+  limit = 5,
+) {
+  const bounds = resolvePaymentFilter(filterOrRange)
+  const conditions = [eq(payments.status, "succeeded"), isNotNull(payments.productName)]
+  if (bounds.from) conditions.push(gte(payments.paymentDate, bounds.from))
+  if (bounds.to) conditions.push(lt(payments.paymentDate, bounds.to))
+
   const rows = await db
     .select({
       productName: payments.productName,
       revenue: sum(payments.amount),
     })
     .from(payments)
-    .where(
-      and(
-        gte(payments.paymentDate, start),
-        eq(payments.status, "succeeded"),
-        isNotNull(payments.productName),
-      ),
-    )
+    .where(and(...conditions))
     .groupBy(payments.productName)
     .orderBy(desc(sum(payments.amount)))
 
@@ -133,16 +270,15 @@ export async function listPayments(range?: DateRange) {
 }
 
 export async function listPaymentsPaginated({
-  range,
+  filter,
   page,
   pageSize,
 }: {
-  range?: DateRange
+  filter?: PaymentDateFilter
   page: number
   pageSize: number
 }) {
-  const conditions = [eq(payments.status, "succeeded")]
-  if (range) conditions.push(gte(payments.paymentDate, rangeStart(range)))
+  const conditions = paymentDateConditions(filter)
 
   const whereClause = and(...conditions)
   const offset = (page - 1) * pageSize

@@ -1,16 +1,48 @@
-import Link from "next/link"
 import { ArrowDownRight, ArrowUpRight, Minus } from "lucide-react"
 
-import { getPaymentMetrics, getProductRevenueBreakdown, type DateRange } from "@/lib/data/payments"
+import {
+  getPaymentMetrics,
+  getProductRevenueBreakdown,
+  type PaymentDateFilter,
+  type PaymentDatePreset,
+} from "@/lib/data/payments"
 import { createClient } from "@/lib/supabase/server"
+import { DateFilterDropdown } from "@/components/date-filter-dropdown"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ProductRevenuePie } from "@/components/dashboard/product-revenue-pie"
 
-const RANGES: { label: string; value: DateRange }[] = [
-  { label: "7d", value: 7 },
-  { label: "30d", value: 30 },
-  { label: "90d", value: 90 },
+const PRESETS: { label: string; value: PaymentDatePreset }[] = [
+  { label: "Today", value: "today" },
+  { label: "Yesterday", value: "yesterday" },
+  { label: "This Week", value: "this_week" },
+  { label: "Last Week", value: "last_week" },
+  { label: "Next Week", value: "next_week" },
+  { label: "This Month", value: "this_month" },
+  { label: "Last Month", value: "last_month" },
+  { label: "Next Month", value: "next_month" },
+  { label: "This Quarter", value: "this_quarter" },
+  { label: "Last Quarter", value: "last_quarter" },
+  { label: "Next Quarter", value: "next_quarter" },
+  { label: "This Year", value: "this_year" },
+  { label: "Last Year", value: "last_year" },
+  { label: "Next Year", value: "next_year" },
+  { label: "All Time", value: "all_time" },
 ]
+
+const PRESET_SET = new Set<PaymentDatePreset>(PRESETS.map((p) => p.value))
+
+function parseISODateInput(value?: string) {
+  if (!value) return undefined
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return undefined
+  const parsed = new Date(`${value}T00:00:00`)
+  if (Number.isNaN(parsed.getTime())) return undefined
+  return parsed
+}
+
+function displayDate(value?: string) {
+  if (!value) return "..."
+  return value
+}
 
 function fmt(cents: number, currency = "usd") {
   return new Intl.NumberFormat("en-US", {
@@ -37,16 +69,25 @@ function Trend({ pct }: { pct: number | null }) {
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ range?: string }>
+  searchParams: Promise<{ preset?: string; from?: string; to?: string }>
 }) {
-  const { range: rawRange } = await searchParams
-  const range: DateRange =
-    rawRange === "7" ? 7 : rawRange === "90" ? 90 : 30
+  const { preset: rawPreset, from: rawFrom, to: rawTo } = await searchParams
+  const preset: PaymentDatePreset =
+    rawPreset && PRESET_SET.has(rawPreset as PaymentDatePreset)
+      ? (rawPreset as PaymentDatePreset)
+      : "this_month"
+  const fromDate = parseISODateInput(rawFrom)
+  const toDate = parseISODateInput(rawTo)
+  const hasCustomRange = Boolean(fromDate || toDate)
+  const activeFilter: PaymentDateFilter = hasCustomRange ? { from: fromDate, to: toDate } : { preset }
+  const activeFilterLabel = hasCustomRange
+    ? `Custom ${displayDate(rawFrom)} to ${displayDate(rawTo)}`
+    : PRESETS.find((p) => p.value === preset)?.label ?? "This Month"
 
   const [supabase, metrics, productBreakdown] = await Promise.all([
     createClient(),
-    getPaymentMetrics(range),
-    getProductRevenueBreakdown(range, 5),
+    getPaymentMetrics(activeFilter),
+    getProductRevenueBreakdown(activeFilter, 5),
   ])
 
   const {
@@ -63,21 +104,14 @@ export default async function DashboardPage({
           </p>
         </div>
 
-        <div className="flex items-center gap-1 rounded-lg border p-1 w-fit">
-          {RANGES.map((r) => (
-            <Link
-              key={r.value}
-              href={`/dashboard?range=${r.value}`}
-              className={`px-3 py-1 text-sm rounded-md transition-colors ${
-                range === r.value
-                  ? "bg-primary text-primary-foreground font-medium"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
-              }`}
-            >
-              {r.label}
-            </Link>
-          ))}
-        </div>
+        <DateFilterDropdown
+          pathname="/dashboard"
+          presets={PRESETS}
+          activePreset={preset}
+          activeLabel={activeFilterLabel}
+          from={rawFrom}
+          to={rawTo}
+        />
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
