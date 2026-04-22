@@ -2,7 +2,8 @@
 
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { CreditCard, LayoutDashboard, LogOut, Settings, Trophy } from "lucide-react"
+import { useEffect, useMemo, useState } from "react"
+import { ChevronDown, CreditCard, Database, LayoutDashboard, LogOut, Settings, Trophy } from "lucide-react"
 
 import {
   Sidebar,
@@ -14,6 +15,9 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
   SidebarRail,
 } from "@/components/ui/sidebar"
 import {
@@ -24,7 +28,6 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { createClient } from "@/lib/supabase/client"
-import { roleLabel, type UserRole } from "@/lib/roles"
 
 function isNavActive(pathname: string, href: string) {
   if (href === "/dashboard") {
@@ -34,20 +37,28 @@ function isNavActive(pathname: string, href: string) {
 }
 
 interface AppSidebarProps {
-  role: UserRole
   email: string | null | undefined
   fullName: string | null | undefined
   isAdmin: boolean
 }
 
 export function AppSidebar({
-  role,
   email,
   fullName,
   isAdmin,
 }: AppSidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
+  const isDataInputRoute = useMemo(
+    () => isNavActive(pathname, "/dashboard/data-input"),
+    [pathname]
+  )
+  const [isDataInputOpen, setIsDataInputOpen] = useState(isDataInputRoute)
+  useEffect(() => {
+    if (isDataInputRoute) {
+      setIsDataInputOpen(true)
+    }
+  }, [isDataInputRoute])
 
   const display = fullName?.trim() || email || "User"
   const initials =
@@ -99,6 +110,7 @@ export function AppSidebar({
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
+
               {isAdmin && (
                 <>
                   <SidebarMenuItem>
@@ -112,6 +124,32 @@ export function AppSidebar({
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
+
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      onClick={() => setIsDataInputOpen((prev) => !prev)}
+                      isActive={isDataInputRoute}
+                    >
+                      <Database />
+                      <span>Data Input</span>
+                      <ChevronDown
+                        className={`ml-auto transition-transform ${isDataInputOpen ? "rotate-180" : ""}`}
+                      />
+                    </SidebarMenuButton>
+                    {isDataInputOpen && (
+                      <SidebarMenuSub>
+                        <SidebarMenuSubItem>
+                          <SidebarMenuSubButton
+                            asChild
+                            isActive={isNavActive(pathname, "/dashboard/data-input/payments")}
+                          >
+                            <Link href="/dashboard/data-input/payments">Payments</Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      </SidebarMenuSub>
+                    )}
+                  </SidebarMenuItem>
+
                   <SidebarMenuItem>
                     <SidebarMenuButton
                       asChild

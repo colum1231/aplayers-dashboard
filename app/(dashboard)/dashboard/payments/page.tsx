@@ -1,11 +1,15 @@
 import Link from "next/link"
 
+import { getProfileByUserId } from "@/lib/auth/profile"
 import {
   listPaymentsPaginated,
   type PaymentDateFilter,
   type PaymentDatePreset,
+  type PaymentSourceFilter,
 } from "@/lib/data/payments"
+import { createClient } from "@/lib/supabase/server"
 import { DateFilterDropdown } from "@/components/date-filter-dropdown"
+import { PaymentRowActions } from "@/components/payment-row-actions"
 import { Badge } from "@/components/ui/badge"
 import {
   Table,
@@ -35,6 +39,14 @@ const PRESETS: { label: string; value: PaymentDatePreset }[] = [
 ]
 
 const PRESET_SET = new Set<PaymentDatePreset>(PRESETS.map((p) => p.value))
+const SOURCE_OPTIONS: { label: string; value: PaymentSourceFilter }[] = [
+  { label: "All Sources", value: "all" },
+  { label: "Stripe", value: "stripe" },
+  { label: "Bank", value: "bank" },
+  { label: "Manual", value: "manual" },
+  { label: "Other", value: "other" },
+]
+const SOURCE_SET = new Set<PaymentSourceFilter>(SOURCE_OPTIONS.map((s) => s.value))
 
 function parseISODateInput(value?: string) {
   if (!value) return undefined
@@ -74,6 +86,7 @@ export default async function PaymentsPage({
     preset?: string
     from?: string
     to?: string
+    source?: string
     page?: string
     pageSize?: string
   }>
@@ -82,6 +95,7 @@ export default async function PaymentsPage({
     preset: rawPreset,
     from: rawFrom,
     to: rawTo,
+    source: rawSource,
     page: rawPage,
     pageSize: rawPageSize,
   } = await searchParams
@@ -89,10 +103,16 @@ export default async function PaymentsPage({
     rawPreset && PRESET_SET.has(rawPreset as PaymentDatePreset)
       ? (rawPreset as PaymentDatePreset)
       : "all_time"
+  const source: PaymentSourceFilter =
+    rawSource && SOURCE_SET.has(rawSource as PaymentSourceFilter)
+      ? (rawSource as PaymentSourceFilter)
+      : "all"
   const fromDate = parseISODateInput(rawFrom)
   const toDate = parseISODateInput(rawTo)
   const hasCustomRange = Boolean(fromDate || toDate)
-  const activeFilter: PaymentDateFilter = hasCustomRange ? { from: fromDate, to: toDate } : { preset }
+  const activeFilter: PaymentDateFilter = hasCustomRange
+    ? { from: fromDate, to: toDate, source }
+    : { preset, source }
   const activeFilterLabel = hasCustomRange
     ? `Custom ${displayDate(rawFrom)} to ${displayDate(rawTo)}`
     : PRESETS.find((p) => p.value === preset)?.label ?? "All Time"
@@ -107,6 +127,12 @@ export default async function PaymentsPage({
     page,
     pageSize,
   })
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  const profile = user ? await getProfileByUserId(user.id) : undefined
+  const isAdmin = profile?.role === "admin"
   const safePage = Math.min(page, totalPages)
   const startRow = total === 0 ? 0 : (safePage - 1) * pageSize + 1
   const endRow = Math.min(safePage * pageSize, total)
@@ -115,6 +141,7 @@ export default async function PaymentsPage({
     preset?: PaymentDatePreset
     from?: string
     to?: string
+    source?: PaymentSourceFilter
     page?: number
     pageSize?: number
   }) {
@@ -122,6 +149,7 @@ export default async function PaymentsPage({
     if (next.preset && next.preset !== "all_time") params.set("preset", next.preset)
     if (next.from) params.set("from", next.from)
     if (next.to) params.set("to", next.to)
+    if (next.source && next.source !== "all") params.set("source", next.source)
     if (next.page && next.page > 1) params.set("page", String(next.page))
     if (next.pageSize && next.pageSize !== 25) params.set("pageSize", String(next.pageSize))
     const query = params.toString()
@@ -151,22 +179,47 @@ export default async function PaymentsPage({
         />
       </div>
 
+      <div className="flex flex-wrap items-center gap-2">
+        {SOURCE_OPTIONS.map((option) => (
+          <Link
+            key={option.value}
+            href={hrefFor({
+              preset: hasCustomRange ? undefined : preset,
+              from: hasCustomRange ? rawFrom : undefined,
+              to: hasCustomRange ? rawTo : undefined,
+              source: option.value,
+              page: 1,
+              pageSize,
+            })}
+            className={`rounded-md border px-2.5 py-1 text-xs ${
+              source === option.value
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            }`}
+          >
+            {option.label}
+          </Link>
+        ))}
+      </div>
+
       <div className="rounded-lg border">
-        <Table>
+        <Table className="min-w-[860px]">
           <TableHeader>
             <TableRow>
               <TableHead>Date</TableHead>
-              <TableHead>Product</TableHead>
               <TableHead>Customer</TableHead>
+              <TableHead>Type</TableHead>
+              <TableHead>Source</TableHead>
+              <TableHead>Product</TableHead>
               <TableHead>Amount</TableHead>
               <TableHead>Currency</TableHead>
-              <TableHead>PI ID</TableHead>
+              {isAdmin && <TableHead className="w-12" />}
             </TableRow>
           </TableHeader>
           <TableBody>
             {rows.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
+                <TableCell colSpan={isAdmin ? 8 : 7} className="h-24 text-center text-muted-foreground">
                   No payments found.
                 </TableCell>
               </TableRow>
@@ -175,13 +228,6 @@ export default async function PaymentsPage({
                 <TableRow key={row.id}>
                   <TableCell className="text-muted-foreground text-xs">
                     {fmtDate(row.paymentDate)}
-                  </TableCell>
-                  <TableCell>
-                    {row.productName ? (
-                      <span className="font-medium">{row.productName}</span>
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-col gap-0.5">
@@ -197,6 +243,25 @@ export default async function PaymentsPage({
                       )}
                     </div>
                   </TableCell>
+                  <TableCell>
+                    {row.paymentType ? (
+                      <span className="text-xs capitalize">{row.paymentType}</span>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className="uppercase text-xs">
+                      {row.source}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    {row.productName ? (
+                      <span className="font-medium">{row.productName}</span>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
                   <TableCell className="font-medium">
                     {fmt(row.amount, row.currency)}
                   </TableCell>
@@ -205,11 +270,11 @@ export default async function PaymentsPage({
                       {row.currency}
                     </Badge>
                   </TableCell>
-                  <TableCell>
-                    <code className="text-xs text-muted-foreground">
-                      {row.stripePaymentIntentId}
-                    </code>
-                  </TableCell>
+                  {isAdmin && (
+                    <TableCell className="w-12">
+                      <PaymentRowActions paymentId={row.id} />
+                    </TableCell>
+                  )}
                 </TableRow>
               ))
             )}
@@ -232,6 +297,7 @@ export default async function PaymentsPage({
                   preset: hasCustomRange ? undefined : preset,
                   from: hasCustomRange ? rawFrom : undefined,
                   to: hasCustomRange ? rawTo : undefined,
+                  source,
                   page: 1,
                   pageSize: size,
                 })}
@@ -251,6 +317,7 @@ export default async function PaymentsPage({
               preset: hasCustomRange ? undefined : preset,
               from: hasCustomRange ? rawFrom : undefined,
               to: hasCustomRange ? rawTo : undefined,
+              source,
               page: Math.max(1, safePage - 1),
               pageSize,
             })}
@@ -271,6 +338,7 @@ export default async function PaymentsPage({
               preset: hasCustomRange ? undefined : preset,
               from: hasCustomRange ? rawFrom : undefined,
               to: hasCustomRange ? rawTo : undefined,
+              source,
               page: Math.min(totalPages, safePage + 1),
               pageSize,
             })}

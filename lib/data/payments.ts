@@ -25,7 +25,10 @@ export type PaymentDateFilter = {
   preset?: PaymentDatePreset
   from?: Date
   to?: Date
+  source?: PaymentSourceFilter
 }
+
+export type PaymentSourceFilter = "all" | "stripe" | "bank" | "manual" | "other"
 
 function rangeStart(days: DateRange) {
   const d = new Date()
@@ -128,6 +131,9 @@ function paymentDateConditions(filter?: PaymentDateFilter) {
 
   if (bounds.from) conditions.push(gte(payments.paymentDate, bounds.from))
   if (bounds.to) conditions.push(lt(payments.paymentDate, bounds.to))
+  if (filter?.source && filter.source !== "all") {
+    conditions.push(eq(payments.source, filter.source))
+  }
 
   return conditions
 }

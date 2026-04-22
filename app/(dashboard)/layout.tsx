@@ -21,7 +21,6 @@ export default async function DashboardLayout({ children }: { children: React.Re
   return (
     <SidebarProvider>
       <AppSidebar
-        role={profile.role}
         email={user.email}
         fullName={profile.fullName}
         isAdmin={profile.role === "admin"}

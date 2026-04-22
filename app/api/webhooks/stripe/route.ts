@@ -4,6 +4,7 @@ import Stripe from "stripe"
 
 import { db } from "@/lib/db"
 import { payments } from "@/lib/db/schema"
+import { inferPaymentType } from "@/lib/payments/types"
 
 const stripe = new Stripe(process.env.STRIPE_READ_ONLY_API_KEY!)
 
@@ -46,6 +47,8 @@ export async function POST(req: Request) {
           amount: record.amount,
           currency: record.currency,
           status: record.status,
+          source: record.source,
+          paymentType: record.paymentType,
           customerEmail: record.customerEmail,
           customerName: record.customerName,
           productName: record.productName,
@@ -101,18 +104,21 @@ async function buildPaymentRecord(pi: Stripe.PaymentIntent) {
     // non-fatal — checkout session may not exist for all PIs
   }
 
+  const metadata = pi.metadata as Record<string, string>
   return {
     stripePaymentIntentId: pi.id,
     amount: pi.amount_received,
     currency: pi.currency,
     status: pi.status,
+    source: "stripe" as const,
+    paymentType: inferPaymentType({ productName, metadata }),
     customerEmail,
     customerName,
     productName,
     productId,
     priceId,
     stripeCustomerId: typeof pi.customer === "string" ? pi.customer : (pi.customer?.id ?? null),
-    metadata: pi.metadata as Record<string, string>,
+    metadata,
     paymentDate: new Date(pi.created * 1000),
   }
 }

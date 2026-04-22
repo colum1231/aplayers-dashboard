@@ -7,6 +7,7 @@ import postgres from "postgres"
 import Stripe from "stripe"
 
 import * as schema from "../lib/db/schema.js"
+import { inferPaymentType } from "../lib/payments/types.js"
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 dotenv.config({ path: path.resolve(__dirname, "../.env.local") })
@@ -63,11 +64,14 @@ async function buildRecord(pi: Stripe.PaymentIntent) {
     // no checkout session for this PI
   }
 
+  const metadata = pi.metadata as Record<string, string>
   return {
     stripePaymentIntentId: pi.id,
     amount: pi.amount_received,
     currency: pi.currency,
     status: pi.status,
+    source: "stripe" as const,
+    paymentType: inferPaymentType({ productName, metadata }),
     customerEmail,
     customerName,
     productName,
@@ -75,7 +79,7 @@ async function buildRecord(pi: Stripe.PaymentIntent) {
     priceId,
     stripeCustomerId:
       typeof pi.customer === "string" ? pi.customer : (pi.customer?.id ?? null),
-    metadata: pi.metadata as Record<string, string>,
+    metadata,
     paymentDate: new Date(pi.created * 1000),
   }
 }
@@ -105,7 +109,11 @@ async function main() {
         .select({ stripePaymentIntentId: schema.payments.stripePaymentIntentId })
         .from(schema.payments)
         .where(inArray(schema.payments.stripePaymentIntentId, succeededIds))
-      existingIds = new Set(existingRows.map((row) => row.stripePaymentIntentId))
+      existingIds = new Set(
+        existingRows
+          .map((row) => row.stripePaymentIntentId)
+          .filter((id): id is string => typeof id === "string" && id.length > 0),
+      )
     }
 
     const newSucceeded = succeeded.filter((pi) => !existingIds.has(pi.id))
@@ -127,6 +135,8 @@ async function main() {
             amount: record.amount,
             currency: record.currency,
             status: record.status,
+            source: record.source,
+            paymentType: record.paymentType,
             customerEmail: record.customerEmail,
             customerName: record.customerName,
             productName: record.productName,
