@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -15,6 +16,7 @@ export default function SetPasswordPage() {
   const [error, setError] = useState<string | null>(null)
   const [sessionError, setSessionError] = useState<string | null>(null)
   const [hasSession, setHasSession] = useState(false)
+  const [sessionChecked, setSessionChecked] = useState(false)
 
   useEffect(() => {
     const supabase = createClient()
@@ -34,6 +36,8 @@ export default function SetPasswordPage() {
         })
         if (error) {
           setSessionError(error.message)
+          setHasSession(false)
+          setSessionChecked(true)
           return
         }
         if (window.location.hash) {
@@ -44,6 +48,8 @@ export default function SetPasswordPage() {
       const { data, error } = await supabase.auth.getSession()
       if (error) {
         setSessionError(error.message)
+        setHasSession(false)
+        setSessionChecked(true)
         return
       }
       if (!data.session) {
@@ -51,10 +57,12 @@ export default function SetPasswordPage() {
           "This link is invalid or expired. Request a new invite/reset link."
         )
         setHasSession(false)
+        setSessionChecked(true)
         return
       }
       setSessionError(null)
       setHasSession(true)
+      setSessionChecked(true)
     }
 
     void loadSession()
@@ -103,40 +111,46 @@ export default function SetPasswordPage() {
             <p className="text-sm text-destructive">{sessionError}</p>
           )}
         </div>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="password">New password</Label>
-            <Input
-              id="password"
-              type="password"
-              autoComplete="new-password"
-              required
-              minLength={8}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="confirm">Confirm password</Label>
-            <Input
-              id="confirm"
-              type="password"
-              autoComplete="new-password"
-              required
-              minLength={8}
-              value={confirm}
-              onChange={(e) => setConfirm(e.target.value)}
-            />
-          </div>
-          {error && <p className="text-sm text-destructive">{error}</p>}
-          <Button
-            type="submit"
-            className="w-full"
-            disabled={pending || !!sessionError}
-          >
-            {pending ? "Saving…" : "Set password"}
+        {!sessionChecked ? (
+          <p className="text-sm text-muted-foreground">
+            Verifying reset link...
+          </p>
+        ) : hasSession && !sessionError ? (
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="password">New password</Label>
+              <Input
+                id="password"
+                type="password"
+                autoComplete="new-password"
+                required
+                minLength={8}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="confirm">Confirm password</Label>
+              <Input
+                id="confirm"
+                type="password"
+                autoComplete="new-password"
+                required
+                minLength={8}
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
+              />
+            </div>
+            {error && <p className="text-sm text-destructive">{error}</p>}
+            <Button type="submit" className="w-full" disabled={pending}>
+              {pending ? "Saving…" : "Set password"}
+            </Button>
+          </form>
+        ) : (
+          <Button asChild className="w-full" variant="outline">
+            <Link href="/login">Back to login</Link>
           </Button>
-        </form>
+        )}
       </div>
     </div>
   )
