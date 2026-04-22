@@ -9,16 +9,12 @@ export type PaymentDatePreset =
   | "yesterday"
   | "this_week"
   | "last_week"
-  | "next_week"
   | "this_month"
   | "last_month"
-  | "next_month"
   | "this_quarter"
   | "last_quarter"
-  | "next_quarter"
   | "this_year"
   | "last_year"
-  | "next_year"
   | "all_time"
 
 export type PaymentDateFilter = {
@@ -73,10 +69,6 @@ function presetBounds(preset: PaymentDatePreset): { from?: Date; to?: Date } {
       const from = addDays(today, -dayOfWeek - 7)
       return { from, to: addDays(from, 7) }
     }
-    case "next_week": {
-      const from = addDays(today, -dayOfWeek + 7)
-      return { from, to: addDays(from, 7) }
-    }
     case "this_month": {
       const from = new Date(today.getFullYear(), today.getMonth(), 1)
       return { from, to: new Date(today.getFullYear(), today.getMonth() + 1, 1) }
@@ -84,10 +76,6 @@ function presetBounds(preset: PaymentDatePreset): { from?: Date; to?: Date } {
     case "last_month": {
       const from = new Date(today.getFullYear(), today.getMonth() - 1, 1)
       return { from, to: new Date(today.getFullYear(), today.getMonth(), 1) }
-    }
-    case "next_month": {
-      const from = new Date(today.getFullYear(), today.getMonth() + 1, 1)
-      return { from, to: new Date(today.getFullYear(), today.getMonth() + 2, 1) }
     }
     case "this_quarter": {
       const quarterStartMonth = getQuarter(today) * 3
@@ -99,11 +87,6 @@ function presetBounds(preset: PaymentDatePreset): { from?: Date; to?: Date } {
       const from = new Date(today.getFullYear(), quarterStartMonth - 3, 1)
       return { from, to: new Date(today.getFullYear(), quarterStartMonth, 1) }
     }
-    case "next_quarter": {
-      const quarterStartMonth = getQuarter(today) * 3
-      const from = new Date(today.getFullYear(), quarterStartMonth + 3, 1)
-      return { from, to: new Date(today.getFullYear(), quarterStartMonth + 6, 1) }
-    }
     case "this_year": {
       const from = new Date(today.getFullYear(), 0, 1)
       return { from, to: new Date(today.getFullYear() + 1, 0, 1) }
@@ -111,10 +94,6 @@ function presetBounds(preset: PaymentDatePreset): { from?: Date; to?: Date } {
     case "last_year": {
       const from = new Date(today.getFullYear() - 1, 0, 1)
       return { from, to: new Date(today.getFullYear(), 0, 1) }
-    }
-    case "next_year": {
-      const from = new Date(today.getFullYear() + 1, 0, 1)
-      return { from, to: new Date(today.getFullYear() + 2, 0, 1) }
     }
   }
 }

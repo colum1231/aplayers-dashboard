@@ -16,16 +16,12 @@ const PRESETS: { label: string; value: PaymentDatePreset }[] = [
   { label: "Yesterday", value: "yesterday" },
   { label: "This Week", value: "this_week" },
   { label: "Last Week", value: "last_week" },
-  { label: "Next Week", value: "next_week" },
   { label: "This Month", value: "this_month" },
   { label: "Last Month", value: "last_month" },
-  { label: "Next Month", value: "next_month" },
   { label: "This Quarter", value: "this_quarter" },
   { label: "Last Quarter", value: "last_quarter" },
-  { label: "Next Quarter", value: "next_quarter" },
   { label: "This Year", value: "this_year" },
   { label: "Last Year", value: "last_year" },
-  { label: "Next Year", value: "next_year" },
   { label: "All Time", value: "all_time" },
 ]
 

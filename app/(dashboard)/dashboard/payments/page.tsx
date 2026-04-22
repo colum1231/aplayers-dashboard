@@ -25,16 +25,12 @@ const PRESETS: { label: string; value: PaymentDatePreset }[] = [
   { label: "Yesterday", value: "yesterday" },
   { label: "This Week", value: "this_week" },
   { label: "Last Week", value: "last_week" },
-  { label: "Next Week", value: "next_week" },
   { label: "This Month", value: "this_month" },
   { label: "Last Month", value: "last_month" },
-  { label: "Next Month", value: "next_month" },
   { label: "This Quarter", value: "this_quarter" },
   { label: "Last Quarter", value: "last_quarter" },
-  { label: "Next Quarter", value: "next_quarter" },
   { label: "This Year", value: "this_year" },
   { label: "Last Year", value: "last_year" },
-  { label: "Next Year", value: "next_year" },
   { label: "All Time", value: "all_time" },
 ]
 
@@ -157,7 +153,7 @@ export default async function PaymentsPage({
   }
 
   return (
-    <div className="flex flex-1 flex-col gap-6 p-6">
+    <div className="flex min-w-0 flex-1 flex-col gap-6 p-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Payments</h1>
@@ -202,7 +198,7 @@ export default async function PaymentsPage({
         ))}
       </div>
 
-      <div className="rounded-lg border">
+      <div className="w-full overflow-x-auto rounded-lg border">
         <Table className="min-w-[860px]">
           <TableHeader>
             <TableRow>
