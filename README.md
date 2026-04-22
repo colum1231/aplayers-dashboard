@@ -1,4 +1,4 @@
-# A-Players Dashboard.
+# A-Players Dashboard
 
 This repository contains the code for the A-Players dashboard.
 
