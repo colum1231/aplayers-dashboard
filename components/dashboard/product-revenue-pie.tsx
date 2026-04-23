@@ -50,11 +50,11 @@ export function ProductRevenuePie({
   )
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[340px_1fr]">
-      <ChartContainer config={config} className="mx-auto h-[260px] w-full max-w-[340px]">
+    <div className="grid gap-4 xl:grid-cols-[280px_minmax(0,1fr)]">
+      <ChartContainer config={config} className="mx-auto h-[220px] w-full max-w-[280px]">
         <PieChart>
           <Tooltip content={<ChartTooltip />} />
-          <Pie data={chartData} dataKey="value" nameKey="name" innerRadius={62} outerRadius={96}>
+          <Pie data={chartData} dataKey="value" nameKey="name" innerRadius={52} outerRadius={82}>
             {chartData.map((entry) => (
               <Cell key={entry.key} className={`color-${entry.key}`} />
             ))}
@@ -62,20 +62,20 @@ export function ProductRevenuePie({
         </PieChart>
       </ChartContainer>
 
-      <div className="space-y-2">
+      <div className="space-y-1.5">
         {chartData.map((item) => {
           const share = totalRevenue > 0 ? (item.value / totalRevenue) * 100 : 0
           return (
-            <div key={item.key} className="flex items-center justify-between gap-4 rounded-md border p-2">
+            <div key={item.key} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-md border p-2">
               <div className="flex items-center gap-2 min-w-0">
                 <span
                   className="h-2.5 w-2.5 rounded-full shrink-0"
                   style={{ backgroundColor: item.color }}
                 />
-                <span className="truncate text-sm">{item.name}</span>
+                <span className="truncate text-xs">{item.name}</span>
               </div>
-              <div className="text-right">
-                <p className="text-sm font-medium">{fmt(item.value)}</p>
+              <div className="text-right shrink-0">
+                <p className="text-xs font-medium whitespace-nowrap">{fmt(item.value)}</p>
                 <p className="text-xs text-muted-foreground">{share.toFixed(1)}%</p>
               </div>
             </div>

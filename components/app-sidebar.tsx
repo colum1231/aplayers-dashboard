@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useEffect, useMemo, useState } from "react"
-import { ChevronDown, CreditCard, Database, LayoutDashboard, LogOut, Settings, Trophy } from "lucide-react"
+import { ChevronDown, CreditCard, Database, LayoutDashboard, LogOut, Phone, Settings, Trophy } from "lucide-react"
 
 import {
   Sidebar,
@@ -107,6 +107,18 @@ export function AppSidebar({
                   <Link href="/dashboard">
                     <LayoutDashboard />
                     <span>Dashboard</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={isNavActive(pathname, "/dashboard/calls")}
+                >
+                  <Link href="/dashboard/calls">
+                    <Phone />
+                    <span>Calls</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>

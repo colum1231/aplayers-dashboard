@@ -25,6 +25,7 @@ type DateFilterDropdownProps = {
   from?: string
   to?: string
   pageSize?: number
+  label?: string
 }
 
 export function DateFilterDropdown({
@@ -35,6 +36,7 @@ export function DateFilterDropdown({
   from,
   to,
   pageSize,
+  label = "Date",
 }: DateFilterDropdownProps) {
   function hrefFor(next: {
     preset?: PaymentDatePreset
@@ -64,7 +66,7 @@ export function DateFilterDropdown({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-[320px]">
-        <DropdownMenuLabel>Payment Date</DropdownMenuLabel>
+        <DropdownMenuLabel>{label}</DropdownMenuLabel>
         <div className="grid grid-cols-2 gap-1 px-1 pb-1">
           {presets.map((datePreset) => {
             const selected = !from && !to && activePreset === datePreset.value

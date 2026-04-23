@@ -6,10 +6,17 @@ import {
   type PaymentDateFilter,
   type PaymentDatePreset,
 } from "@/lib/data/payments"
+import {
+  getCallMetrics,
+  getCallStatusBreakdown,
+  getCallVolumeSeries,
+} from "@/lib/data/calls"
 import { createClient } from "@/lib/supabase/server"
 import { DateFilterDropdown } from "@/components/date-filter-dropdown"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ProductRevenuePie } from "@/components/dashboard/product-revenue-pie"
+import { CallStatusPie } from "@/components/dashboard/call-status-pie"
+import { CallVolumeChart } from "@/components/dashboard/call-volume-chart"
 
 const PRESETS: { label: string; value: PaymentDatePreset }[] = [
   { label: "Today", value: "today" },
@@ -80,10 +87,13 @@ export default async function DashboardPage({
     ? `Custom ${displayDate(rawFrom)} to ${displayDate(rawTo)}`
     : PRESETS.find((p) => p.value === preset)?.label ?? "This Month"
 
-  const [supabase, metrics, productBreakdown] = await Promise.all([
+  const [supabase, metrics, productBreakdown, callMetrics, callStatusBreakdown, callVolumeSeries] = await Promise.all([
     createClient(),
     getPaymentMetrics(activeFilter),
     getProductRevenueBreakdown(activeFilter, 5),
+    getCallMetrics(activeFilter),
+    getCallStatusBreakdown(activeFilter),
+    getCallVolumeSeries(activeFilter),
   ])
 
   const {
@@ -164,18 +174,94 @@ export default async function DashboardPage({
         </Card>
       </div>
 
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Calls Booked
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-1">
+            <p className="text-2xl font-bold tracking-tight">{callMetrics.booked.toLocaleString()}</p>
+            <Trend pct={callMetrics.bookedChange} />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Shows
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-1">
+            <p className="text-2xl font-bold tracking-tight">{callMetrics.showCount.toLocaleString()}</p>
+            <p className="text-xs text-muted-foreground">completed + past attended calls</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              No-Shows
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-1">
+            <p className="text-2xl font-bold tracking-tight">{callMetrics.noShow.toLocaleString()}</p>
+            <p className="text-xs text-muted-foreground">from Calendly no-show events</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Show Rate
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-1">
+            <p className="text-2xl font-bold tracking-tight">
+              {callMetrics.showRate !== null ? `${(callMetrics.showRate * 100).toFixed(1)}%` : "—"}
+            </p>
+            <Trend pct={callMetrics.showRateChange} />
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Revenue by Product</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {productBreakdown.items.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No product revenue yet.</p>
+            ) : (
+              <ProductRevenuePie
+                items={productBreakdown.items}
+                totalRevenue={productBreakdown.totalRevenue}
+              />
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Call Status Breakdown</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <CallStatusPie items={callStatusBreakdown} />
+          </CardContent>
+        </Card>
+      </div>
+
       <Card>
         <CardHeader>
-          <CardTitle>Revenue by Product</CardTitle>
+          <CardTitle>Call Volume Trend</CardTitle>
         </CardHeader>
         <CardContent>
-          {productBreakdown.items.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No product revenue yet.</p>
+          {callVolumeSeries.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No call data for this period.</p>
           ) : (
-            <ProductRevenuePie
-              items={productBreakdown.items}
-              totalRevenue={productBreakdown.totalRevenue}
-            />
+            <CallVolumeChart items={callVolumeSeries} />
           )}
         </CardContent>
       </Card>
