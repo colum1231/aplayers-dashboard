@@ -4,7 +4,11 @@ import { NextResponse } from "next/server"
 
 import { db } from "@/lib/db"
 import { calls, webhookLogs } from "@/lib/db/schema"
-import { CALENDLY_EVENTS, HANDLED_EVENTS } from "@/lib/calendly/constants"
+import {
+  ALLOWED_CALENDLY_EVENT_TYPE_URIS,
+  CALENDLY_EVENTS,
+  HANDLED_EVENTS,
+} from "@/lib/calendly/constants"
 import { normalizeInviteeCanceled, normalizeInviteeCreated } from "@/lib/calendly/normalize"
 import { matchSetterFromUtm } from "@/lib/calendly/setter-match"
 
@@ -88,6 +92,11 @@ async function updateLog(logId: string, update: LogUpdate) {
     .where(eq(webhookLogs.id, logId))
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function getScheduledEventTypeUri(eventPayload: any): string | null {
+  return (eventPayload?.scheduled_event?.event_type as string | undefined) ?? null
+}
+
 // ─── Handler ─────────────────────────────────────────────────────────────────
 
 export async function POST(req: Request) {
@@ -145,6 +154,22 @@ export async function POST(req: Request) {
   const eventPayload = parsedBody.payload as any
 
   try {
+    const requiresEventTypeFilter =
+      eventType === CALENDLY_EVENTS.INVITEE_CREATED || eventType === CALENDLY_EVENTS.INVITEE_CANCELED
+
+    if (requiresEventTypeFilter && ALLOWED_CALENDLY_EVENT_TYPE_URIS.length > 0) {
+      const eventTypeUri = getScheduledEventTypeUri(eventPayload)
+      if (!eventTypeUri || !ALLOWED_CALENDLY_EVENT_TYPE_URIS.includes(eventTypeUri)) {
+        await updateLog(logId, {
+          processingStatus: "ignored",
+          httpStatus: 200,
+          errorMessage: `Ignored event_type URI: ${eventTypeUri ?? "missing"}`,
+          processedAt: new Date(),
+        }).catch(console.error)
+        return NextResponse.json({ received: true, ignored: "event_type_uri" })
+      }
+    }
+
     // ── invitee.created ────────────────────────────────────────────────────
     if (eventType === CALENDLY_EVENTS.INVITEE_CREATED) {
       const normalized = normalizeInviteeCreated(eventPayload)

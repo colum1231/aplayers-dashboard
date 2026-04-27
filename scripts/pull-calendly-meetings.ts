@@ -6,6 +6,7 @@ import { drizzle } from "drizzle-orm/postgres-js"
 import postgres from "postgres"
 
 import * as schema from "../lib/db/schema.js"
+import { MANUAL_UTM_CONTENT_TO_EMAIL } from "../lib/calendly/constants.js"
 
 const API_BASE = "https://api.calendly.com"
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -51,11 +52,22 @@ function normalizeName(s?: string | null) {
     .trim()
 }
 
+function normalizeUtmContentKey(s?: string | null) {
+  if (!s) return ""
+  return s.trim().toLowerCase()
+}
+
 type ProfileRow = typeof schema.profiles.$inferSelect
 
 function matchSetter(utmContent: string | null | undefined, profiles: ProfileRow[]) {
   const raw = utmContent?.trim()
   if (!raw) return null
+  const manualMappedEmail = MANUAL_UTM_CONTENT_TO_EMAIL[normalizeUtmContentKey(raw)]?.toLowerCase()
+  if (manualMappedEmail) {
+    const manualMatch = profiles.find((p) => p.email?.toLowerCase() === manualMappedEmail)
+    if (manualMatch) return manualMatch
+  }
+
   const normalized = normalizeName(raw)
   return profiles.find((p) => normalizeName(p.fullName) === normalized) ?? null
 }
