@@ -13,7 +13,9 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "pull:meetings:calendly": "tsx scripts/pull-calendly-meetings.ts",
-    "list:event-types:calendly": "tsx scripts/list-calendly-event-types.ts"
+    "list:event-types:calendly": "tsx scripts/list-calendly-event-types.ts",
+    "sync:calls:calendly": "tsx scripts/sync-calendly-calls.ts",
+    "sync:calls:calendly:mock": "tsx scripts/sync-calendly-calls.ts --mock"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.2",

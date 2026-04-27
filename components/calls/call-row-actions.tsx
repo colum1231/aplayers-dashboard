@@ -90,13 +90,6 @@ export function CallRowActions({
           <Loader2 className="pointer-events-none absolute right-2 h-3 w-3 animate-spin text-muted-foreground" />
         )}
       </div>
-
-      {/* Current setter fallback display if no match in setter list */}
-      {!currentSetterId && currentSetterSnapshot && (
-        <span className="text-xs text-muted-foreground italic truncate max-w-[100px]">
-          {currentSetterSnapshot}
-        </span>
-      )}
     </div>
   )
 }

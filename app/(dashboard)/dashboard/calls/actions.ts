@@ -7,7 +7,7 @@ import { redirect } from "next/navigation"
 import { getProfileByUserId } from "@/lib/auth/profile"
 import { db } from "@/lib/db"
 import { calls, profiles } from "@/lib/db/schema"
-import { isCallOutcome } from "@/lib/calls/outcomes"
+import { CLOSED_OUTCOMES, isCallOutcome } from "@/lib/calls/outcomes"
 import { createClient } from "@/lib/supabase/server"
 
 type ActionResult = { ok: true } | { error: string }
@@ -39,6 +39,26 @@ export async function updateCallOutcome(
     return { error: "Invalid outcome value" }
   }
 
+  const [existingCall] = await db
+    .select({ status: calls.status })
+    .from(calls)
+    .where(eq(calls.id, callId))
+    .limit(1)
+
+  if (!existingCall) return { error: "Call not found" }
+
+  const isClosedOutcome =
+    outcome !== null && (CLOSED_OUTCOMES as readonly string[]).includes(outcome)
+
+  let nextStatus: "scheduled" | "canceled" | "completed" | "no_show" | undefined
+  if (isClosedOutcome) {
+    nextStatus = "completed"
+  } else if (existingCall.status === "completed") {
+    // Only unwind manually-completed calls back to scheduled.
+    // Keep webhook-driven statuses (canceled/no_show) untouched.
+    nextStatus = "scheduled"
+  }
+
   await db
     .update(calls)
     .set({
@@ -46,6 +66,7 @@ export async function updateCallOutcome(
       outcomeNotes: notes?.trim() || null,
       outcomeUpdatedBy: user.id,
       outcomeUpdatedAt: new Date(),
+      ...(nextStatus ? { status: nextStatus } : {}),
       updatedAt: new Date(),
     })
     .where(eq(calls.id, callId))
