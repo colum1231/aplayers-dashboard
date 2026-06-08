@@ -36,6 +36,20 @@
       "when": 1776817800000,
       "tag": "0004_backfill_payment_type",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1776902400000,
+      "tag": "0005_whop_and_manual_calls",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1776988800000,
+      "tag": "0006_drop_stripe_payments",
+      "breakpoints": true
     }
   ]
 }

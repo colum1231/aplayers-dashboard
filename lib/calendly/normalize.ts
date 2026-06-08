@@ -1,3 +1,5 @@
+import { resolveEventTypeUri } from "@/lib/calendly/constants"
+
 // Normalizes Calendly v2 webhook payload into a shape we can store.
 // Payload structure: { event: string, payload: { ... } }
 
@@ -41,7 +43,7 @@ export function normalizeInviteeCreated(eventPayload: any): NormalizedCalendlyIn
   return {
     calendlyEventUri: scheduledEvent?.uri ?? "",
     calendlyInviteeUri: eventPayload?.uri ?? null,
-    eventTypeUri: scheduledEvent?.event_type ?? null,
+    eventTypeUri: resolveEventTypeUri(scheduledEvent?.event_type),
     eventTypeName: scheduledEvent?.name ?? null,
     scheduledStartAt: new Date(startTime),
     scheduledEndAt: scheduledEvent?.end_time ? new Date(scheduledEvent.end_time) : null,
@@ -66,7 +68,7 @@ export function normalizeInviteeCanceled(eventPayload: any): NormalizedCalendlyI
   return {
     calendlyEventUri: scheduledEvent?.uri ?? "",
     calendlyInviteeUri: eventPayload?.uri ?? null,
-    eventTypeUri: scheduledEvent?.event_type ?? null,
+    eventTypeUri: resolveEventTypeUri(scheduledEvent?.event_type),
     eventTypeName: scheduledEvent?.name ?? null,
     scheduledStartAt: new Date(startTime),
     scheduledEndAt: scheduledEvent?.end_time ? new Date(scheduledEvent.end_time) : null,

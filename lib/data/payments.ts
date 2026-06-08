@@ -24,7 +24,7 @@ export type PaymentDateFilter = {
   source?: PaymentSourceFilter
 }
 
-export type PaymentSourceFilter = "all" | "stripe" | "bank" | "manual" | "other"
+export type PaymentSourceFilter = "all" | "whop" | "bank" | "manual" | "other"
 
 function rangeStart(days: DateRange) {
   const d = new Date()

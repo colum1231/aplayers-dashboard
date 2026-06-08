@@ -55,7 +55,7 @@ export function inferPaymentType({
   const byProductName = inferPaymentTypeFromProductName(productName)
   if (byProductName) return byProductName
 
-  // Keep the column populated even when Stripe metadata is missing.
+  // Keep the column populated even when provider metadata is missing.
   return "membership"
 }
 

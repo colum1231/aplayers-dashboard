@@ -8,7 +8,7 @@ import postgres from "postgres"
 
 import * as schema from "../lib/db/schema.js"
 import {
-  ALLOWED_CALENDLY_EVENT_TYPE_URIS,
+  isAllowedCalendlyEventType,
   MANUAL_UTM_CONTENT_TO_EMAIL,
 } from "../lib/calendly/constants.js"
 
@@ -255,10 +255,7 @@ async function main() {
 
     for (const event of events) {
       // Filter by allowed event type URIs (same logic as webhook handler)
-      if (
-        ALLOWED_CALENDLY_EVENT_TYPE_URIS.length > 0 &&
-        !ALLOWED_CALENDLY_EVENT_TYPE_URIS.includes(event.event_type)
-      ) {
+      if (!isAllowedCalendlyEventType(event.event_type)) {
         continue
       }
 

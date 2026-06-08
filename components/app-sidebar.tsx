@@ -153,6 +153,14 @@ export function AppSidebar({
                         <SidebarMenuSubItem>
                           <SidebarMenuSubButton
                             asChild
+                            isActive={isNavActive(pathname, "/dashboard/data-input/calls")}
+                          >
+                            <Link href="/dashboard/data-input/calls">Calls</Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                        <SidebarMenuSubItem>
+                          <SidebarMenuSubButton
+                            asChild
                             isActive={isNavActive(pathname, "/dashboard/data-input/payments")}
                           >
                             <Link href="/dashboard/data-input/payments">Payments</Link>

@@ -37,7 +37,7 @@ const PRESETS: { label: string; value: PaymentDatePreset }[] = [
 const PRESET_SET = new Set<PaymentDatePreset>(PRESETS.map((p) => p.value))
 const SOURCE_OPTIONS: { label: string; value: PaymentSourceFilter }[] = [
   { label: "All Sources", value: "all" },
-  { label: "Stripe", value: "stripe" },
+  { label: "Whop", value: "whop" },
   { label: "Bank", value: "bank" },
   { label: "Manual", value: "manual" },
   { label: "Other", value: "other" },

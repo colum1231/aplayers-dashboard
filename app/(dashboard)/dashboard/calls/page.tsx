@@ -1,5 +1,6 @@
 import Link from "next/link"
 
+import { Button } from "@/components/ui/button"
 import { getProfileByUserId } from "@/lib/auth/profile"
 import { db } from "@/lib/db"
 import { profiles } from "@/lib/db/schema"
@@ -233,16 +234,23 @@ export default async function CallsPage({
             {`(${activeFilterLabel})`}
           </p>
         </div>
-        <DateFilterDropdown
-          pathname="/dashboard/calls"
-          presets={PRESETS}
-          activePreset={preset}
-          activeLabel={activeFilterLabel}
-          from={rawFrom}
-          to={rawTo}
-          pageSize={pageSize}
-          label="Call Date"
-        />
+        <div className="flex flex-wrap items-center gap-2">
+          {canEdit && (
+            <Button variant="outline" asChild>
+              <Link href="/dashboard/data-input/calls">Add call</Link>
+            </Button>
+          )}
+          <DateFilterDropdown
+            pathname="/dashboard/calls"
+            presets={PRESETS}
+            activePreset={preset}
+            activeLabel={activeFilterLabel}
+            from={rawFrom}
+            to={rawTo}
+            pageSize={pageSize}
+            label="Call Date"
+          />
+        </div>
       </div>
 
       {/* KPI cards */}
@@ -398,8 +406,11 @@ export default async function CallsPage({
                   </TableCell>
 
                   <TableCell>
-                    {/* UTM source/content for setter tracking */}
-                    {row.utm ? (
+                    {row.source === "manual" ? (
+                      <Badge variant="outline" className="text-xs">
+                        Manual
+                      </Badge>
+                    ) : row.utm ? (
                       <div className="flex flex-col gap-0.5">
                         {(row.utm as Record<string, string>).utm_source && (
                           <span className="text-xs text-muted-foreground">

@@ -1,7 +1,7 @@
 import { boolean, integer, jsonb, pgEnum, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core"
 
 export const userRoleEnum = pgEnum("user_role", ["admin", "closer", "setter"])
-export const paymentSourceEnum = pgEnum("payment_source", ["stripe", "bank", "manual", "other"])
+export const paymentSourceEnum = pgEnum("payment_source", ["whop", "bank", "manual", "other"])
 export const paymentTypeEnum = pgEnum("payment_type", ["membership", "sponsorship", "partnership"])
 
 export const profiles = pgTable("profiles", {
@@ -19,18 +19,18 @@ export type NewProfile = typeof profiles.$inferInsert
 
 export const payments = pgTable("payments", {
   id: uuid("id").defaultRandom().primaryKey(),
-  stripePaymentIntentId: text("stripe_payment_intent_id").unique(),
+  whopInvoiceId: text("whop_invoice_id").unique(),
   amount: integer("amount").notNull(), // in cents
   currency: text("currency").notNull(),
   status: text("status").notNull(),
-  source: paymentSourceEnum("source").notNull().default("stripe"),
+  source: paymentSourceEnum("source").notNull().default("whop"),
   paymentType: paymentTypeEnum("payment_type"),
   customerEmail: text("customer_email"),
   customerName: text("customer_name"),
   productName: text("product_name"),
   productId: text("product_id"),
   priceId: text("price_id"),
-  stripeCustomerId: text("stripe_customer_id"),
+  whopUserId: text("whop_user_id"),
   metadata: jsonb("metadata"),
   paymentDate: timestamp("payment_date", { withTimezone: true }).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
@@ -41,6 +41,8 @@ export type NewPayment = typeof payments.$inferInsert
 
 // ─── Calls ────────────────────────────────────────────────────────────────────
 
+export const callSourceEnum = pgEnum("call_source", ["calendly", "manual"])
+
 export const callStatusEnum = pgEnum("call_status", [
   "scheduled",
   "canceled",
@@ -50,8 +52,9 @@ export const callStatusEnum = pgEnum("call_status", [
 
 export const calls = pgTable("calls", {
   id: uuid("id").defaultRandom().primaryKey(),
-  // Calendly identifiers
-  calendlyEventUri: text("calendly_event_uri").notNull(),
+  source: callSourceEnum("source").notNull().default("calendly"),
+  // Calendly identifiers (null for manual entries)
+  calendlyEventUri: text("calendly_event_uri"),
   calendlyInviteeUri: text("calendly_invitee_uri").unique(),
   eventTypeUri: text("event_type_uri"),
   eventTypeName: text("event_type_name"),
@@ -88,7 +91,7 @@ export type NewCall = typeof calls.$inferInsert
 
 // ─── Webhook logs ─────────────────────────────────────────────────────────────
 
-export const webhookProviderEnum = pgEnum("webhook_provider", ["calendly"])
+export const webhookProviderEnum = pgEnum("webhook_provider", ["calendly", "whop"])
 export const webhookProcessingStatusEnum = pgEnum("webhook_processing_status", [
   "received",
   "ignored",

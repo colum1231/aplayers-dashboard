@@ -55,7 +55,7 @@ export async function createManualPayment(formData: FormData) {
   }
 
   await db.insert(payments).values({
-    stripePaymentIntentId: null,
+    whopInvoiceId: null,
     amount: amountInCents,
     currency: "eur",
     status: "succeeded",
