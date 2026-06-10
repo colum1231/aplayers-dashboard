@@ -12,6 +12,11 @@ import {
 } from "@/lib/data/calls"
 import type { PaymentDatePreset } from "@/lib/data/payments"
 import { outcomeLabel } from "@/lib/calls/outcomes"
+import {
+  formatCalendlyUtmLabel,
+  formatCalendlyUtmSubLabel,
+  normalizeCalendlyUtm,
+} from "@/lib/calendly/utm"
 import { createClient } from "@/lib/supabase/server"
 import { DateFilterDropdown } from "@/components/date-filter-dropdown"
 import { CallRowActions } from "@/components/calls/call-row-actions"
@@ -65,14 +70,44 @@ function displayDate(value?: string) {
   return value
 }
 
-function fmtDate(d: Date | string) {
+function fmtScheduledDate(start: Date) {
   return new Intl.DateTimeFormat("en-US", {
+    weekday: "short",
     month: "short",
     day: "numeric",
-    year: "numeric",
-    hour: "2-digit",
+    year: start.getFullYear() !== new Date().getFullYear() ? "numeric" : undefined,
+  }).format(start)
+}
+
+function fmtScheduledTime(d: Date) {
+  return new Intl.DateTimeFormat("en-US", {
+    hour: "numeric",
     minute: "2-digit",
-  }).format(new Date(d))
+  }).format(d)
+}
+
+function fmtTimezoneAbbr(d: Date) {
+  return (
+    new Intl.DateTimeFormat("en-US", { timeZoneName: "short" })
+      .formatToParts(d)
+      .find((part) => part.type === "timeZoneName")?.value ?? ""
+  )
+}
+
+function fmtScheduledRange(
+  startAt: Date | string,
+  endAt?: Date | string | null,
+) {
+  const start = new Date(startAt)
+  const end = endAt ? new Date(endAt) : null
+  const tz = fmtTimezoneAbbr(start)
+  const startTime = fmtScheduledTime(start)
+
+  if (end && !Number.isNaN(end.getTime()) && end.getTime() > start.getTime()) {
+    return `${startTime} – ${fmtScheduledTime(end)} ${tz}`.trim()
+  }
+
+  return `${startTime} ${tz}`.trim()
 }
 
 function statusBadgeVariant(status: string) {
@@ -222,6 +257,7 @@ export default async function CallsPage({
   }))
 
   const canEdit = profile && ["admin", "closer", "setter"].includes(profile.role)
+  const isAdmin = profile?.role === "admin"
 
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-6 p-6">
@@ -358,10 +394,10 @@ export default async function CallsPage({
         <Table className="min-w-[900px]">
           <TableHeader>
             <TableRow>
-              <TableHead>Date</TableHead>
+              <TableHead>Scheduled</TableHead>
               <TableHead>Lead</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>UTM Source</TableHead>
+              <TableHead>Traffic</TableHead>
               {canEdit ? (
                 <TableHead>Setter / Outcome</TableHead>
               ) : (
@@ -382,8 +418,23 @@ export default async function CallsPage({
             ) : (
               rows.map((row) => (
                 <TableRow key={row.id}>
-                  <TableCell className="text-xs text-muted-foreground">
-                    {fmtDate(row.scheduledStartAt)}
+                  <TableCell>
+                    {(() => {
+                      const start = new Date(row.scheduledStartAt)
+                      return (
+                        <div className="flex min-w-[140px] flex-col gap-0.5">
+                          <span className="text-xs font-medium">{fmtScheduledDate(start)}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {fmtScheduledRange(start, row.scheduledEndAt)}
+                          </span>
+                          {row.eventTypeName && (
+                            <span className="text-[10px] text-muted-foreground">
+                              {row.eventTypeName}
+                            </span>
+                          )}
+                        </div>
+                      )
+                    })()}
                   </TableCell>
 
                   <TableCell>
@@ -411,18 +462,23 @@ export default async function CallsPage({
                         Manual
                       </Badge>
                     ) : row.utm ? (
-                      <div className="flex flex-col gap-0.5">
-                        {(row.utm as Record<string, string>).utm_source && (
-                          <span className="text-xs text-muted-foreground">
-                            {(row.utm as Record<string, string>).utm_source}
-                          </span>
-                        )}
-                        {(row.utm as Record<string, string>).utm_content && (
-                          <span className="text-xs font-medium">
-                            {(row.utm as Record<string, string>).utm_content}
-                          </span>
-                        )}
-                      </div>
+                      (() => {
+                        const utm = normalizeCalendlyUtm(row.utm as Record<string, unknown>)
+                        const label = formatCalendlyUtmLabel(utm)
+                        const sub = formatCalendlyUtmSubLabel(utm)
+                        return (
+                          <div className="flex flex-col gap-0.5">
+                            {label ? (
+                              <span className="text-xs font-medium">{label}</span>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                            {sub && (
+                              <span className="text-xs text-muted-foreground">{sub}</span>
+                            )}
+                          </div>
+                        )
+                      })()
                     ) : (
                       <span className="text-muted-foreground">—</span>
                     )}
@@ -436,6 +492,7 @@ export default async function CallsPage({
                         currentSetterId={row.setterUserId}
                         currentSetterSnapshot={row.setterNameSnapshot}
                         setters={setters}
+                        isAdmin={isAdmin}
                       />
                     </TableCell>
                   ) : (

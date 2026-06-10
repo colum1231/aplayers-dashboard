@@ -1,15 +1,7 @@
 import { resolveEventTypeUri } from "@/lib/calendly/constants"
+import { normalizeCalendlyUtm, type CalendlyUtm } from "@/lib/calendly/utm"
 
-// Normalizes Calendly v2 webhook payload into a shape we can store.
-// Payload structure: { event: string, payload: { ... } }
-
-export type CalendlyUtm = {
-  utm_source?: string | null
-  utm_medium?: string | null
-  utm_campaign?: string | null
-  utm_content?: string | null
-  utm_term?: string | null
-}
+export type { CalendlyUtm }
 
 export type NormalizedCalendlyInvitee = {
   calendlyEventUri: string
@@ -31,14 +23,7 @@ export function normalizeInviteeCreated(eventPayload: any): NormalizedCalendlyIn
   const startTime = scheduledEvent?.start_time
   if (!startTime) return null
 
-  const tracking = eventPayload?.tracking ?? {}
-  const utm: CalendlyUtm = {
-    utm_source: tracking.utm_source ?? null,
-    utm_medium: tracking.utm_medium ?? null,
-    utm_campaign: tracking.utm_campaign ?? null,
-    utm_content: tracking.utm_content ?? null,
-    utm_term: tracking.utm_term ?? null,
-  }
+  const utm = normalizeCalendlyUtm(eventPayload?.tracking ?? {})
 
   return {
     calendlyEventUri: scheduledEvent?.uri ?? "",

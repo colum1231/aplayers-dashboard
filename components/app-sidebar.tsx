@@ -3,7 +3,16 @@
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useEffect, useMemo, useState } from "react"
-import { ChevronDown, CreditCard, Database, LayoutDashboard, LogOut, Phone, Settings, Trophy } from "lucide-react"
+import {
+  ChevronDown,
+  CreditCard,
+  Database,
+  LayoutDashboard,
+  LogOut,
+  Phone,
+  Settings,
+  Trophy,
+} from "lucide-react"
 
 import {
   Sidebar,
@@ -42,11 +51,7 @@ interface AppSidebarProps {
   isAdmin: boolean
 }
 
-export function AppSidebar({
-  email,
-  fullName,
-  isAdmin,
-}: AppSidebarProps) {
+export function AppSidebar({ email, fullName, isAdmin }: AppSidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const isDataInputRoute = useMemo(
@@ -81,9 +86,6 @@ export function AppSidebar({
     <Sidebar>
       <SidebarHeader className="flex h-14 shrink-0 items-center justify-start border-b px-4">
         <div className="flex w-full min-w-0 items-center justify-start gap-2">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground">
-            <Trophy className="h-4 w-4" />
-          </div>
           <div className="flex min-w-0 flex-col leading-tight">
             <span className="truncate font-bold tracking-tight">
               A Players Club
@@ -153,17 +155,27 @@ export function AppSidebar({
                         <SidebarMenuSubItem>
                           <SidebarMenuSubButton
                             asChild
-                            isActive={isNavActive(pathname, "/dashboard/data-input/calls")}
+                            isActive={isNavActive(
+                              pathname,
+                              "/dashboard/data-input/calls"
+                            )}
                           >
-                            <Link href="/dashboard/data-input/calls">Calls</Link>
+                            <Link href="/dashboard/data-input/calls">
+                              Calls
+                            </Link>
                           </SidebarMenuSubButton>
                         </SidebarMenuSubItem>
                         <SidebarMenuSubItem>
                           <SidebarMenuSubButton
                             asChild
-                            isActive={isNavActive(pathname, "/dashboard/data-input/payments")}
+                            isActive={isNavActive(
+                              pathname,
+                              "/dashboard/data-input/payments"
+                            )}
                           >
-                            <Link href="/dashboard/data-input/payments">Payments</Link>
+                            <Link href="/dashboard/data-input/payments">
+                              Payments
+                            </Link>
                           </SidebarMenuSubButton>
                         </SidebarMenuSubItem>
                       </SidebarMenuSub>

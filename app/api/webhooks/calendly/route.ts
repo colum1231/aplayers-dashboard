@@ -11,7 +11,8 @@ import {
   resolveEventTypeUri,
 } from "@/lib/calendly/constants"
 import { normalizeInviteeCanceled, normalizeInviteeCreated } from "@/lib/calendly/normalize"
-import { matchSetterFromUtm } from "@/lib/calendly/setter-match"
+import { matchSetterForCall } from "@/lib/calendly/setter-match"
+import { enqueueCallToCloseSync } from "@/lib/close/sync"
 
 const SIGNING_KEY = process.env.CALENDLY_WEBHOOK_SIGNING_KEY ?? ""
 
@@ -179,7 +180,10 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
       }
 
-      const setter = await matchSetterFromUtm(normalized.utm?.utm_content)
+      const setter = await matchSetterForCall({
+        utm: normalized.utm,
+        eventTypeUri: normalized.eventTypeUri,
+      })
 
       const [row] = await db
         .insert(calls)
@@ -220,6 +224,8 @@ export async function POST(req: Request) {
           },
         })
         .returning({ id: calls.id })
+
+      enqueueCallToCloseSync(row?.id)
 
       await updateLog(logId, {
         processingStatus: "success",
@@ -280,9 +286,11 @@ export async function POST(req: Request) {
 
       const [row] = await db
         .update(calls)
-        .set({ status: "no_show", updatedAt: new Date() })
+        .set({ status: "no_show", outcome: "no_show", updatedAt: new Date() })
         .where(eq(calls.calendlyInviteeUri, inviteeUri))
         .returning({ id: calls.id })
+
+      enqueueCallToCloseSync(row?.id)
 
       await updateLog(logId, {
         processingStatus: row ? "success" : "ignored",
@@ -308,9 +316,11 @@ export async function POST(req: Request) {
 
       const [row] = await db
         .update(calls)
-        .set({ status: "completed", updatedAt: new Date() })
+        .set({ status: "scheduled", outcome: null, updatedAt: new Date() })
         .where(eq(calls.calendlyInviteeUri, inviteeUri))
         .returning({ id: calls.id })
+
+      enqueueCallToCloseSync(row?.id)
 
       await updateLog(logId, {
         processingStatus: row ? "success" : "ignored",

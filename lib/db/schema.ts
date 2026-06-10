@@ -78,6 +78,10 @@ export const calls = pgTable("calls", {
   outcomeNotes: text("outcome_notes"),
   outcomeUpdatedBy: uuid("outcome_updated_by"),
   outcomeUpdatedAt: timestamp("outcome_updated_at", { withTimezone: true }),
+  // Close CRM link (synced both ways when opportunity found)
+  closeOpportunityId: text("close_opportunity_id"),
+  closeLeadId: text("close_lead_id"),
+  closeStatusId: text("close_status_id"),
   // Raw payload blobs
   answers: jsonb("answers"),
   rawEvent: jsonb("raw_event"),
@@ -91,7 +95,7 @@ export type NewCall = typeof calls.$inferInsert
 
 // ─── Webhook logs ─────────────────────────────────────────────────────────────
 
-export const webhookProviderEnum = pgEnum("webhook_provider", ["calendly", "whop"])
+export const webhookProviderEnum = pgEnum("webhook_provider", ["calendly", "whop", "close"])
 export const webhookProcessingStatusEnum = pgEnum("webhook_processing_status", [
   "received",
   "ignored",

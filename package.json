@@ -16,6 +16,12 @@
     "list:event-types:calendly": "tsx scripts/list-calendly-event-types.ts",
     "sync:calls:calendly": "tsx scripts/sync-calendly-calls.ts",
     "sync:calls:calendly:mock": "tsx scripts/sync-calendly-calls.ts --mock",
+    "list:webhooks:calendly": "tsx scripts/list-calendly-webhooks.ts",
+    "setup:webhook:calendly": "tsx scripts/setup-calendly-webhook.ts",
+    "verify:webhook:calendly": "tsx scripts/verify-calendly-webhook.ts",
+    "list:webhooks:close": "tsx scripts/list-close-webhooks.ts",
+    "setup:webhook:close": "tsx scripts/setup-close-webhook.ts",
+    "sync:close": "tsx scripts/sync-close-status.ts",
     "sync:payments:whop": "tsx scripts/sync-whop-invoices.ts",
     "sync:payments:whop:mock": "tsx scripts/sync-whop-invoices.ts --mock"
   },

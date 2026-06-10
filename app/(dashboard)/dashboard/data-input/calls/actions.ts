@@ -6,6 +6,7 @@ import { eq } from "drizzle-orm"
 import { getProfileByUserId } from "@/lib/auth/profile"
 import { db } from "@/lib/db"
 import { calls, profiles } from "@/lib/db/schema"
+import { enqueueCallToCloseSync } from "@/lib/close/sync"
 import { createClient } from "@/lib/supabase/server"
 
 function parseDateTime(dateRaw: string, timeRaw: string) {
@@ -67,24 +68,28 @@ export async function createManualCall(formData: FormData) {
     setterEmailSnapshot = setterProfile.email
   }
 
-  await db.insert(calls).values({
-    source: "manual",
-    calendlyEventUri: null,
-    calendlyInviteeUri: null,
-    eventTypeName: "Manual entry",
-    scheduledStartAt,
-    status: "scheduled",
-    inviteeName,
-    inviteeEmail,
-    setterUserId: resolvedSetterUserId,
-    setterNameSnapshot,
-    setterEmailSnapshot,
-    outcomeNotes: notes || null,
-    rawEvent: {
-      manualInput: true,
-      capturedByUserId: user.id,
-    },
-  })
+  const [row] = await db
+    .insert(calls)
+    .values({
+      source: "manual",
+      calendlyEventUri: null,
+      calendlyInviteeUri: null,
+      eventTypeName: "Manual entry",
+      scheduledStartAt,
+      status: "scheduled",
+      inviteeName,
+      inviteeEmail,
+      setterUserId: resolvedSetterUserId,
+      setterNameSnapshot,
+      setterEmailSnapshot,
+      outcomeNotes: notes || null,
+      rawEvent: {
+        manualInput: true,
+        capturedByUserId: user.id,
+      },
+    })
+    .returning({ id: calls.id })
 
+  enqueueCallToCloseSync(row?.id)
   redirect("/dashboard/data-input/calls?success=1")
 }

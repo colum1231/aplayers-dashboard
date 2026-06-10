@@ -8,6 +8,7 @@ import { getProfileByUserId } from "@/lib/auth/profile"
 import { db } from "@/lib/db"
 import { calls, profiles } from "@/lib/db/schema"
 import { CLOSED_OUTCOMES, isCallOutcome } from "@/lib/calls/outcomes"
+import { enqueueCallToCloseSync } from "@/lib/close/sync"
 import { createClient } from "@/lib/supabase/server"
 
 type ActionResult = { ok: true } | { error: string }
@@ -51,11 +52,11 @@ export async function updateCallOutcome(
     outcome !== null && (CLOSED_OUTCOMES as readonly string[]).includes(outcome)
 
   let nextStatus: "scheduled" | "canceled" | "completed" | "no_show" | undefined
-  if (isClosedOutcome) {
+  if (outcome === "no_show") {
+    nextStatus = "no_show"
+  } else if (isClosedOutcome) {
     nextStatus = "completed"
-  } else if (existingCall.status === "completed") {
-    // Only unwind manually-completed calls back to scheduled.
-    // Keep webhook-driven statuses (canceled/no_show) untouched.
+  } else if (existingCall.status === "completed" || existingCall.status === "no_show") {
     nextStatus = "scheduled"
   }
 
@@ -71,6 +72,7 @@ export async function updateCallOutcome(
     })
     .where(eq(calls.id, callId))
 
+  enqueueCallToCloseSync(callId)
   revalidatePath("/dashboard/calls")
   return { ok: true }
 }
@@ -116,13 +118,15 @@ export async function updateCallSetter(
   return { ok: true }
 }
 
-export async function deleteCall(callId: string): Promise<ActionResult> {
-  const { profile } = await getAuthedUser()
-  if (!profile) return { error: "Profile not found" }
+export async function deleteCall(formData: FormData) {
+  const callId = String(formData.get("callId") ?? "").trim()
+  if (!callId) return
 
-  if (profile.role !== "admin") return { error: "Only admins can delete calls" }
+  const { profile } = await getAuthedUser()
+  if (!profile || profile.role !== "admin") {
+    redirect("/dashboard/calls")
+  }
 
   await db.delete(calls).where(eq(calls.id, callId))
   revalidatePath("/dashboard/calls")
-  return { ok: true }
 }

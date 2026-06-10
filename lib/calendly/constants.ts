@@ -16,6 +16,8 @@ export const HANDLED_EVENTS = Object.values(CALENDLY_EVENTS) as string[]
  */
 export const MANUAL_UTM_CONTENT_TO_EMAIL: Record<string, string> = {
   matthew: "matthew@theaplayersclub.com",
+  hayla: "hayla.adam0@gmail.com",
+  derry: "derryg99@icloud.com",
 }
 
 /** Calendly event types that should create/update call records. */

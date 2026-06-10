@@ -7,10 +7,9 @@ import { eq } from "drizzle-orm"
 import postgres from "postgres"
 
 import * as schema from "../lib/db/schema.js"
-import {
-  isAllowedCalendlyEventType,
-  MANUAL_UTM_CONTENT_TO_EMAIL,
-} from "../lib/calendly/constants.js"
+import { isAllowedCalendlyEventType } from "../lib/calendly/constants.js"
+import { matchSetterForCall } from "../lib/calendly/setter-match.js"
+import { normalizeCalendlyUtm } from "../lib/calendly/utm.js"
 
 const API_BASE = "https://api.calendly.com"
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -52,46 +51,7 @@ async function calendlyFetch<T>(token: string, pathName: string): Promise<T> {
   return json as T
 }
 
-function normalizeName(s?: string | null) {
-  if (!s) return ""
-  return s
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-}
-
-function normalizeUtmContentKey(s?: string | null) {
-  if (!s) return ""
-  return s.trim().toLowerCase()
-}
-
 type ProfileRow = typeof schema.profiles.$inferSelect
-
-function matchSetter(utmContent: string | null | undefined, profiles: ProfileRow[]) {
-  const raw = utmContent?.trim()
-  if (!raw) return { setterUserId: null, setterNameSnapshot: null, setterEmailSnapshot: null }
-
-  const manualMappedEmail =
-    MANUAL_UTM_CONTENT_TO_EMAIL[normalizeUtmContentKey(raw)]?.toLowerCase()
-  if (manualMappedEmail) {
-    const manualMatch = profiles.find((p) => p.email?.toLowerCase() === manualMappedEmail)
-    return {
-      setterUserId: manualMatch?.id ?? null,
-      setterNameSnapshot: manualMatch?.fullName ?? raw,
-      setterEmailSnapshot: manualMatch?.email ?? manualMappedEmail,
-    }
-  }
-
-  const normalized = normalizeName(raw)
-  const match = profiles.find((p) => p.fullName && normalizeName(p.fullName) === normalized)
-  return {
-    setterUserId: match?.id ?? null,
-    setterNameSnapshot: match?.fullName ?? raw,
-    setterEmailSnapshot: match?.email ?? null,
-  }
-}
 
 // ─── Calendly API ─────────────────────────────────────────────────────────────
 
@@ -262,16 +222,14 @@ async function main() {
       const invitees = await listInvitees(apiKey, event.uri)
 
       for (const invitee of invitees) {
-        const utmContent = invitee.tracking?.utm_content ?? null
-        const utm = {
-          utm_source: invitee.tracking?.utm_source ?? null,
-          utm_medium: invitee.tracking?.utm_medium ?? null,
-          utm_campaign: invitee.tracking?.utm_campaign ?? null,
-          utm_content: utmContent,
-          utm_term: invitee.tracking?.utm_term ?? null,
-        }
+        const utm = normalizeCalendlyUtm(invitee.tracking ?? {})
+        const utmContent = utm?.utm_content ?? null
 
-        const setter = matchSetter(utmContent, profiles)
+        const setter = await matchSetterForCall({
+          utm,
+          eventTypeUri: event.event_type,
+          profiles,
+        })
         const status: "scheduled" | "canceled" = invitee.canceled ? "canceled" : "scheduled"
         const canceledAt =
           invitee.canceled && invitee.cancellation?.canceled_at
